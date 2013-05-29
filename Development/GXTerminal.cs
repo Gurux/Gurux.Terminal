@@ -818,9 +818,12 @@ namespace Gurux.Terminal
             }
         }        
 
+        /// <summary>
+        /// Server sunctionality is added later.
+        /// </summary>
         [DefaultValue(false)]
         [Browsable(true)]
-        public bool Server
+        internal bool Server
         {
             get
             {
@@ -1193,8 +1196,8 @@ namespace Gurux.Terminal
         /// <remarks>
         /// If connection is succeeded but Modem data is not move try to set following:
         /// DTE/Modem flow control
-        /// AT&K0  Disable flow control.
-        /// AT&Q0  Direct Asynchronous mode
+        /// AT&amp;K0  Disable flow control.
+        /// AT&amp;Q0  Direct Asynchronous mode
         /// </remarks>
         public void Open()
         {

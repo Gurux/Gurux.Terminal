@@ -41,7 +41,7 @@ using System.Windows.Forms;
 
 namespace Gurux.Terminal
 {
-    public partial class Connecting : Form
+    internal partial class Connecting : Form
     {
         public Connecting()
         {
