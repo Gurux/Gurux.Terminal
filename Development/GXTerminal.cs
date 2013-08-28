@@ -319,23 +319,23 @@ namespace Gurux.Terminal
                 byte[] buff = null;
                 if (this.IsSynchronous)
                 {
-                    TraceEventArgs arg = null;                    
+                    TraceEventArgs arg = null;
                     lock (m_syncBase.m_ReceivedSync)
                     {
                         int totalCount = 0;
                         index = m_syncBase.m_ReceivedSize;
-                        while (this.IsOpen && (count = this.BytesToRead) != 0)
+                        while (m_base.IsOpen && (count = m_base.BytesToRead) != 0)
                         {
-                            totalCount += count;                            
-                            buff = new byte[count];                            
+                            totalCount += count;
+                            buff = new byte[count];
                             m_base.Read(buff, 0, count);
-                            m_syncBase.AppendData(buff, 0, count);                                                        
+                            m_syncBase.AppendData(buff, 0, count);
                             m_BytesReceived += (uint)count;
                         }
                         if (totalCount != 0 && Eop != null) //Search Eop if given.
                         {
                             if (Eop is Array)
-                            {                                
+                            {
                                 foreach (object eop in (Array)Eop)
                                 {
                                     totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(eop), index, m_syncBase.m_ReceivedSize);
@@ -354,10 +354,10 @@ namespace Gurux.Terminal
                         {
                             if (totalCount != 0 && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
                             {
-                                arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, 0, totalCount + 1);
+                                arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount + 1);
                             }
-                            m_syncBase.m_ReceivedEvent.Set();                            
                         }
+                        m_syncBase.m_ReceivedEvent.Set();
                     }
                     if (arg != null)
                     {
@@ -367,21 +367,21 @@ namespace Gurux.Terminal
                 else if (this.m_OnReceived != null)
                 {
                     int totalCount = 0;
-                    while (this.IsOpen && (count = this.BytesToRead) != 0)
+                    while (m_base.IsOpen && (count = m_base.BytesToRead) != 0)
                     {
                         index = m_syncBase.m_ReceivedSize;
                         buff = new byte[count];
                         totalCount += count;
                         m_base.Read(buff, 0, count);
-                        m_BytesReceived += (uint)count;                        
+                        m_BytesReceived += (uint)count;
                         if (Eop != null) //Search Eop if given.
-                        {                            
+                        {
                             m_syncBase.AppendData(buff, 0, count);
                             if (Eop is Array)
                             {
                                 foreach (object eop in (Array)Eop)
                                 {
-                                    totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(Eop), index, m_syncBase.m_ReceivedSize);
+                                    totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(eop), index, m_syncBase.m_ReceivedSize);
                                     if (totalCount != -1)
                                     {
                                         break;
