@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>GXTerminalSample</name>
+    </assembly>
+    <members>
+        <member name="M:GXTerminalSample.Form1.CloseBtn_Click(System.Object,System.EventArgs)">
+            <summary>
+            Closes Terminal connection.
+            </summary>
+            <param name="eventSender"></param>
+            <param name="eventArgs"></param>
+        </member>
+        <member name="M:GXTerminalSample.Form1.gxTerminal1_OnError(System.Object,System.Exception)">
+            <summary>
+            Show occured error.
+            </summary>
+            <param name="sender"></param>
+            <param name="exception"></param>
+        </member>
+        <member name="M:GXTerminalSample.Form1.gxTerminal1_OnMediaStateChange(System.Object,Gurux.Common.MediaStateEventArgs)">
+            <summary>
+            Update UI when media state changes.
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:GXTerminalSample.Form1.OnReceived(System.Object,Gurux.Common.ReceiveEventArgs)">
+            <summary>
+            Show received data.
+            </summary>
+        </member>
+        <member name="M:GXTerminalSample.Form1.gxTerminal1_OnReceived(System.Object,Gurux.Common.ReceiveEventArgs)">
+            <summary>
+            Show received data.
+            </summary>
+        </member>
+        <member name="M:GXTerminalSample.Form1.IntervalTimer_Tick(System.Object,System.EventArgs)">
+            <summary>
+            Read selected item.
+            </summary>
+            <param name="eventSender"></param>
+            <param name="eventArgs"></param>
+        </member>
+        <member name="M:GXTerminalSample.Form1.OpenBtn_Click(System.Object,System.EventArgs)">
+            <summary>
+            Open Terminal connection.
+            </summary>
+        </member>
+        <member name="M:GXTerminalSample.Form1.PacketCounterTimer_Tick(System.Object,System.EventArgs)">
+            <summary>
+            Update sent/received byte counts.
+            </summary>
+            <param name="eventSender"></param>
+            <param name="eventArgs"></param>
+        </member>
+        <member name="M:GXTerminalSample.Form1.PropertiesBtn_Click(System.Object,System.EventArgs)">
+            <summary>
+            Show GXTerminal media properties.
+            </summary>
+        </member>
+        <member name="M:GXTerminalSample.Form1.SendBtn_Click(System.Object,System.EventArgs)">
+            <summary>
+            Send data.
+            </summary>
+            <param name="eventSender"></param>
+            <param name="eventArgs"></param>
+        </member>
+        <member name="M:GXTerminalSample.Form1.StatusTimer_Tick(System.Object,System.EventArgs)">
+            <summary>
+            Update modem state.
+            </summary>
+            <param name="eventSender"></param>
+            <param name="eventArgs"></param>
+        </member>
+        <member name="M:GXTerminalSample.Form1.SyncBtn_CheckedChanged(System.Object,System.EventArgs)">
+            <summary>
+            End of Packet is used only when data is send synchronously.
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+    </members>
+</doc>

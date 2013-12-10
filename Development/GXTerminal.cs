@@ -100,6 +100,7 @@ namespace Gurux.Terminal
 	/// </summary>
     public class GXTerminal : Gurux.Common.IGXMedia, INotifyPropertyChanged, IDisposable
     {
+        int m_ConnectionWaitTime = 3000;
         Progress Progress;
         bool m_Server;
         string m_PhoneNumber;
@@ -816,7 +817,34 @@ namespace Gurux.Terminal
                     NotifyPropertyChanged("PhoneNumber");
                 }
             }
-        }        
+        }
+
+        /// <summary>
+        /// Gets or sets how long (ms.) modem answer is waited when connection is made.
+        /// </summary>
+        public int ConnectionWaitTime
+        {
+            get
+            {
+                lock (m_baseLock)
+                {
+                    return m_ConnectionWaitTime;
+                }
+            }
+            set
+            {
+                bool change;
+                lock (m_baseLock)
+                {
+                    change = m_ConnectionWaitTime != value;
+                    m_ConnectionWaitTime = value;
+                }
+                if (change)
+                {
+                    NotifyPropertyChanged("ConnectionWaitTime");
+                }
+            }
+        }  
 
         /// <summary>
         /// Server sunctionality is added later.
@@ -1234,10 +1262,11 @@ namespace Gurux.Terminal
                     m_Receiver = new ReceiveThread(this);
                     m_ReceiverThread = new Thread(new ThreadStart(m_Receiver.Receive));
                     m_ReceiverThread.IsBackground = true;
-                    m_ReceiverThread.Start();
+                    m_ReceiverThread.Start();                    
                 }                
                 try
                 {
+                    this.DtrEnable = this.RtsEnable = true; 
                     //Send AT
                     lock (Synchronous)
                     {
@@ -1245,7 +1274,7 @@ namespace Gurux.Terminal
                         {
                             foreach (string it in InitializeCommands)
                             {
-                                SendCommand("AT\r", "OK\r\n", true);
+                                SendCommand(it + "\r\n", "OK\r\n", true);
                             }
                         }
                         string reply;
@@ -1312,24 +1341,41 @@ namespace Gurux.Terminal
             string eop = "\r\n";
             Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
             {
-                WaitTime = 30000,
+                WaitTime = m_ConnectionWaitTime,
                 Eop = eop
             };
             Send(cmd);
             StringBuilder sb = new StringBuilder();
             int index = -1;
             bool connected = false;
+            String str = "";
             while(index == -1)
             {
                 if (!this.Receive(p))
                 {
                     throw new Exception("Connection failed.");
                 }
-                sb.Append(p.Reply);                
-                connected = sb.ToString().LastIndexOf("CONNECT") != -1;
+                sb.Append(p.Reply);
+                str = sb.ToString();
+                connected = str.LastIndexOf("CONNECT") != -1;
                 if (connected)
                 {
-                    index = sb.ToString().LastIndexOf("\r");
+                    index = str.LastIndexOf("\r");
+                }
+                else
+                {
+                    if (str.LastIndexOf("NO CARRIER") != -1)
+                    {
+                        throw new Exception("Connection failed: no carrier (when telephone call was being established). ");
+                    }
+                    if (str.LastIndexOf("ERROR") != -1)
+                    {
+                        throw new Exception("Connection failed: error (when telephone call was being established).");
+                    }
+                    if (str.LastIndexOf("BUSY") != -1)
+                    {
+                        throw new Exception("Connection failed: busy (when telephone call was being established).");
+                    }
                 }
                 p.Reply = null;
                 //After first success read one byte at the time.
@@ -1344,7 +1390,7 @@ namespace Gurux.Terminal
         {
             Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
             {
-                WaitTime = 3000,
+                WaitTime = m_ConnectionWaitTime,
                 Eop = eop
             };
             Send(cmd);
