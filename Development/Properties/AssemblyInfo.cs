@@ -42,7 +42,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Gurux Ltd")]
 [assembly: AssemblyProduct("Gurux.Terminal")]
-[assembly: AssemblyCopyright("Copyright (c) 1998-2013 Gurux Ltd. All rights reserved.")]
+[assembly: AssemblyCopyright("Copyright (c) 1998-2014 Gurux Ltd. All rights reserved.")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -54,4 +54,4 @@ using System.Runtime.InteropServices;
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("0bcd7ed2-9b85-449c-93bf-03b41e0853f0")]
 [assembly: AssemblyVersion("1.0.0.0")] //DO NOT CHANGE!
-[assembly: AssemblyFileVersion("1.0.4.0")]
+[assembly: AssemblyFileVersion("1.0.6.0")]

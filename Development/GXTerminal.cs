@@ -100,7 +100,9 @@ namespace Gurux.Terminal
 	/// </summary>
     public class GXTerminal : Gurux.Common.IGXMedia, INotifyPropertyChanged, IDisposable
     {
-        int m_ConnectionWaitTime = 3000;
+        int m_ConnectionWaitTime = 30000;
+        int m_CommandWaitTime = 3000;
+
         Progress Progress;
         bool m_Server;
         string m_PhoneNumber;
@@ -844,7 +846,35 @@ namespace Gurux.Terminal
                     NotifyPropertyChanged("ConnectionWaitTime");
                 }
             }
+        }
+
+        /// <summary>
+        /// Get or set how long (ms) modem answer is waited when command is send for the modem.
+        /// </summary>
+        public int CommandWaitTime
+        {
+            get
+            {
+                lock (m_baseLock)
+                {
+                    return m_CommandWaitTime;
+                }
+            }
+            set
+            {
+                bool change;
+                lock (m_baseLock)
+                {
+                    change = m_CommandWaitTime != value;
+                    m_CommandWaitTime = value;
+                }
+                if (change)
+                {
+                    NotifyPropertyChanged("CommandWaitTime");
+                }
+            }
         }  
+
 
         /// <summary>
         /// Server sunctionality is added later.
@@ -1145,9 +1175,10 @@ namespace Gurux.Terminal
                                 {
                                     if (Progress == Progress.Connected)
                                     {
-                                        string reply = SendCommand("+++", "+++", false);
+                                        //We are not expecting reply.
+                                        SendCommand("+++", m_CommandWaitTime, "", false);
                                     }
-                                    SendCommand("ATH\r", "\n", false);
+                                    SendCommand("ATH\r", m_ConnectionWaitTime, null, false);
                                 }
                             }
                             finally
@@ -1274,26 +1305,21 @@ namespace Gurux.Terminal
                         {
                             foreach (string it in InitializeCommands)
                             {
-                                SendCommand(it + "\r\n", "OK\r\n", true);
+                                SendCommand(it + "\r\n", m_CommandWaitTime, null, true);
                             }
                         }
                         string reply;
                         if (this.Server)
                         {
-                            if (string.Compare(SendCommand("AT\r", "OK\r\n", false), "AT\r\r\n", true) != 0)
-                            {
-                                reply = SendCommand("+++", "+++", true);
-                                if (string.IsNullOrEmpty(reply))
-                                {
-                                    throw new Exception("Invalid reply.");
-                                }
-                                reply = SendCommand("AT\r", "OK\r\n", true);
+                            if (string.Compare(SendCommand("AT\r\n", m_CommandWaitTime, null, false), "OK", true) != 0)
+                            {                                
+                                reply = SendCommand("AT\r\n", m_CommandWaitTime, null, true);
                                 if (string.Compare(reply, "AT\r\r\n", true) != 0)
                                 {
                                     throw new Exception("Invalid reply.");
                                 }
                             }
-                            reply = SendCommand("ATA\r", "\r", true);
+                            reply = SendCommand("ATA\r\n", m_CommandWaitTime, null, true);
                             if (string.Compare(reply, "ATA", true) != 0)
                             {
                                 throw new Exception("Invalid reply.");
@@ -1303,21 +1329,16 @@ namespace Gurux.Terminal
                         else
                         {
                             //Send AT
-                            if (string.Compare(SendCommand("AT\r", "OK\r\n", false), "AT\r\r\n", true) != 0)
-                            {
-                                reply = SendCommand("+++", "+++", true);
-                                if (string.IsNullOrEmpty(reply))
+                            if (string.Compare(SendCommand("AT\r", m_CommandWaitTime, null, false), "OK", true) != 0)
+                            {                                
+                                reply = SendCommand("AT\r", m_CommandWaitTime, null, true);
+                                if (string.Compare(reply, "OK", true) != 0)
                                 {
                                     throw new Exception("Invalid reply.");
                                 }
-                                reply = SendCommand("AT\r", "OK\r\n", true);
-                                if (string.Compare(reply, "AT\r", true) != 0)
-                                {
-                                    throw new Exception("Invalid reply.");
-                                }
-                            }
+                            }                           
                             Progress = Progress.Connecting;
-                            reply = Connect("ATD" + PhoneNumber + "\r");
+                            reply = SendCommand("ATD" + PhoneNumber + "\r\n", m_ConnectionWaitTime, null, true);
                             Progress = Progress.Connected;
                         }
                     }
@@ -1336,86 +1357,107 @@ namespace Gurux.Terminal
             }
         }
         
-        string Connect(string cmd)
+        void SendBytes(byte[] value)
         {
-            string eop = "\r\n";
-            Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
+            lock (m_baseLock)
             {
-                WaitTime = m_ConnectionWaitTime,
-                Eop = eop
-            };
-            Send(cmd);
-            StringBuilder sb = new StringBuilder();
-            int index = -1;
-            bool connected = false;
-            String str = "";
-            while(index == -1)
-            {
-                if (!this.Receive(p))
+                if (m_Trace == TraceLevel.Verbose && m_OnTrace != null)
                 {
-                    throw new Exception("Connection failed.");
+                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value));
                 }
-                sb.Append(p.Reply);
-                str = sb.ToString();
-                connected = str.LastIndexOf("CONNECT") != -1;
-                if (connected)
+                m_BytesSent += (uint)value.Length;
+                //Reset last position if Eop is used.
+                lock (m_syncBase.m_ReceivedSync)
                 {
-                    index = str.LastIndexOf("\r");
+                    m_syncBase.m_LastPosition = 0;
                 }
-                else
-                {
-                    if (str.LastIndexOf("NO CARRIER") != -1)
-                    {
-                        throw new Exception("Connection failed: no carrier (when telephone call was being established). ");
-                    }
-                    if (str.LastIndexOf("ERROR") != -1)
-                    {
-                        throw new Exception("Connection failed: error (when telephone call was being established).");
-                    }
-                    if (str.LastIndexOf("BUSY") != -1)
-                    {
-                        throw new Exception("Connection failed: busy (when telephone call was being established).");
-                    }
-                }
-                p.Reply = null;
-                //After first success read one byte at the time.
-                p.Eop = null;
-                p.Count = 1;
+                m_base.Write(value, 0, value.Length);
             }
-            string reply = sb.ToString();
-            return reply;
         }
 
-        string SendCommand(string cmd, string eop, bool throwError)
+        string SendCommand(string cmd, int wt, string eop, bool throwError)
         {
             Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
             {
-                WaitTime = m_ConnectionWaitTime,
-                Eop = eop
+                WaitTime = wt,
+                Eop = eop == null ? "\r\n" : eop
             };
-            Send(cmd);
+            if (p.Eop.Equals(""))
+            {
+                p.Eop = null;
+                p.Count = cmd.Length;
+            }
+            SendBytes(ASCIIEncoding.ASCII.GetBytes(cmd));
             StringBuilder sb = new StringBuilder();
             int index = -1;
-            while(index == -1)
+            string reply = "";
+            while (index == -1)
             {
-                if (!this.Receive(p))
+                if (!Receive(p))
                 {
                     if (throwError)
                     {
                         throw new Exception("Failed to receive answer from the modem. Check serial port.");
                     }
-                    return null;
+                    return "";
                 }
-                sb.Append(p.Reply);                
-                index = sb.ToString().LastIndexOf(eop);
+                sb.Append(p.Reply);
+                reply = sb.ToString();
+                //Remove echo.                
+                if (sb.Length >= cmd.Length && reply.StartsWith(cmd))
+                {
+                    sb.Remove(0, cmd.Length);
+                    reply = sb.ToString();
+                    //Remove echo and return if we are not expecting reply.
+                    if (eop == "")
+                    {
+                        return "";
+                    }
+                }
+                if (eop != null)
+                {
+                    index = reply.LastIndexOf(eop);
+                }
+                else if (reply.Length > 5)
+                {
+                    index = reply.LastIndexOf("\r\nOK\r\n");
+                    if (index == -1)
+                    {
+                        index = reply.LastIndexOf("ERROR:");
+                        if (index == -1)
+                        {
+                            index = reply.LastIndexOf("CONNECT");
+                            if (index == -1)
+                            {
+                                if (reply.LastIndexOf("NO CARRIER") != -1)
+                                {
+                                    throw new Exception("Connection failed: no carrier (when telephone call was being established). ");
+                                }
+                                if (reply.LastIndexOf("ERROR") != -1)
+                                {
+                                    throw new Exception("Connection failed: error (when telephone call was being established).");
+                                }
+                                if (reply.LastIndexOf("BUSY") != -1)
+                                {
+                                    throw new Exception("Connection failed: busy (when telephone call was being established).");
+                                }
+                            }
+                        }
+                    }
+                    //If there is a message before OK show it.
+                    else if (index != 0)
+                    {
+                        reply = reply.Remove(index);
+                        index = 0;
+                    }
+                }
                 p.Reply = null;
-                //After first success read one byte at the time.
-                p.Eop = null;
-                p.Count = 1;
             }
-            string reply = sb.ToString();
-            index = sb.Length - eop.Length;
-            reply = reply.Substring(0, index);
+            if (index != 0 & eop == null)
+            {
+                reply = reply.Remove(0, index);
+            }
+            reply = reply.Trim();
             return reply;
         }
 
