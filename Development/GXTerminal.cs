@@ -335,6 +335,10 @@ namespace Gurux.Terminal
                             m_syncBase.AppendData(buff, 0, count);
                             m_BytesReceived += (uint)count;
                         }
+                        if (totalCount != 0 && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
+                        {
+                            arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount + 1);
+                        }
                         if (totalCount != 0 && Eop != null) //Search Eop if given.
                         {
                             if (Eop is Array)
@@ -355,12 +359,9 @@ namespace Gurux.Terminal
                         }
                         if (totalCount != -1)
                         {
-                            if (totalCount != 0 && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
-                            {
-                                arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount + 1);
-                            }
+                            m_syncBase.m_ReceivedEvent.Set();                            
                         }
-                        m_syncBase.m_ReceivedEvent.Set();
+                        
                     }
                     if (arg != null)
                     {
@@ -1176,9 +1177,17 @@ namespace Gurux.Terminal
                                     if (Progress == Progress.Connected)
                                     {
                                         //We are not expecting reply.
-                                        SendCommand("+++", m_CommandWaitTime, "", false);
+                                        Thread.Sleep(1000);
+                                        Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
+                                        {
+                                            WaitTime = m_ConnectionWaitTime,
+                                            Count = 3
+                                        };
+                                        SendBytes(ASCIIEncoding.ASCII.GetBytes("+++"));
+                                        //It's OK if this fails.
+                                        Receive(p);
+                                        SendCommand("ATH0\r", m_ConnectionWaitTime, null, false);
                                     }
-                                    SendCommand("ATH\r", m_ConnectionWaitTime, null, false);
                                 }
                             }
                             finally
@@ -1429,9 +1438,27 @@ namespace Gurux.Terminal
                             index = reply.LastIndexOf("CONNECT");
                             if (index == -1)
                             {
-                                if (reply.LastIndexOf("NO CARRIER") != -1)
+                                index = reply.LastIndexOf("NO CARRIER");
+                                if (index != -1)
                                 {
-                                    throw new Exception("Connection failed: no carrier (when telephone call was being established). ");
+                                    string str = "Connection failed: no carrier (when telephone call was being established). ";
+                                    int start = reply.IndexOf("CAUSE:");
+                                    if (start != -1)
+                                    {
+                                        if (start < index)
+                                        {
+                                            str += reply.Substring(start, index - start).Trim();
+                                        }
+                                        else
+                                        {
+                                            str += reply.Substring(start).Trim();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        str += SendCommand("AT+CEER\r", wt, null, false);
+                                    }
+                                    throw new Exception(str);
                                 }
                                 if (reply.LastIndexOf("ERROR") != -1)
                                 {
