@@ -44,11 +44,12 @@ using System.Diagnostics;
 using System.IO.Ports;
 using System.Reflection;
 using System.Threading;
+using Gurux.Terminal.Properties;
 
 namespace Gurux.Terminal
 {
     class ReceiveThread
-    {
+    {        
         public ManualResetEvent Closing;
         GXTerminal m_Parent;
         public ReceiveThread(GXTerminal parent)
@@ -337,7 +338,8 @@ namespace Gurux.Terminal
                         }
                         if (totalCount != 0 && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
                         {
-                            arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount + 1);
+                            arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount);
+                            m_OnTrace(this, arg);
                         }
                         if (totalCount != 0 && Eop != null) //Search Eop if given.
                         {
@@ -362,11 +364,7 @@ namespace Gurux.Terminal
                             m_syncBase.m_ReceivedEvent.Set();                            
                         }
                         
-                    }
-                    if (arg != null)
-                    {
-                        m_OnTrace(this, arg);
-                    }
+                    }                   
                 }
                 else if (this.m_OnReceived != null)
                 {
@@ -378,6 +376,10 @@ namespace Gurux.Terminal
                         totalCount += count;
                         m_base.Read(buff, 0, count);
                         m_BytesReceived += (uint)count;
+                        if (buff != null && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
+                        {
+                            m_OnTrace(this, new TraceEventArgs(TraceTypes.Received, buff));
+                        }
                         if (Eop != null) //Search Eop if given.
                         {
                             m_syncBase.AppendData(buff, 0, count);
@@ -401,20 +403,12 @@ namespace Gurux.Terminal
                                 buff = new byte[m_syncBase.m_ReceivedSize];
                                 Array.Copy(m_syncBase.m_Received, buff, m_syncBase.m_ReceivedSize);
                                 m_syncBase.m_ReceivedSize = 0;
-                                m_OnReceived(this, new ReceiveEventArgs(buff, this.PortName));
-                                if (buff != null && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
-                                {
-                                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Received, buff, index, totalCount - index));
-                                }
+                                m_OnReceived(this, new ReceiveEventArgs(buff, this.PortName));                                
                             }
                         }
                         else
                         {
-                            m_OnReceived(this, new ReceiveEventArgs(buff, this.PortName));
-                            if (buff != null && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
-                            {
-                                m_OnTrace(this, new TraceEventArgs(TraceTypes.Received, buff));
-                            }
+                            m_OnReceived(this, new ReceiveEventArgs(buff, this.PortName));                            
                         }
                     }
                 }
@@ -486,7 +480,7 @@ namespace Gurux.Terminal
 	                m_base.BreakState = value;
 				}
 	            if (change)
-                {
+                {                    
                     NotifyPropertyChanged("BreakState");
                 }
             }
@@ -1279,7 +1273,7 @@ namespace Gurux.Terminal
                 NotifyMediaStateChange(MediaState.Opening);
                 if (m_Trace >= TraceLevel.Info && m_OnTrace != null)
                 {
-                    string eop = "None";
+                    string eop = Resources.None;
                     if (Eop is byte[])
                     {
                         eop = BitConverter.ToString(Eop as byte[], 0);
@@ -1288,9 +1282,21 @@ namespace Gurux.Terminal
                     {
                         eop = Eop.ToString();
                     }
-                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, "Settings: Port: " + this.PortName + 
-                                " Baud Rate: " + BaudRate + " Data Bits: " + DataBits.ToString() + " Parity: " 
-                                + Parity.ToString() + " Stop Bits: " + StopBits.ToString() + " Eop:" + eop));
+                    string str = string.Format("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11} {12} ", 
+                        Resources.Settings,
+                        Resources.Port,
+                        this.PortName,
+                        Resources.BaudRate,
+                        BaudRate,
+                        Resources.DataBits,
+                        DataBits,
+                        Resources.Parity,
+                        Parity,
+                        Resources.StopBits,
+                        StopBits,
+                        Resources.Eop,
+                        eop);
+                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, str));
                 }
 				lock(m_baseLock)
 				{
@@ -1325,13 +1331,13 @@ namespace Gurux.Terminal
                                 reply = SendCommand("AT\r\n", m_CommandWaitTime, null, true);
                                 if (string.Compare(reply, "AT\r\r\n", true) != 0)
                                 {
-                                    throw new Exception("Invalid reply.");
+                                    throw new Exception(Resources.InvalidReply);
                                 }
                             }
                             reply = SendCommand("ATA\r\n", m_CommandWaitTime, null, true);
                             if (string.Compare(reply, "ATA", true) != 0)
                             {
-                                throw new Exception("Invalid reply.");
+                                throw new Exception(Resources.InvalidReply);
                             }
                             Progress = Progress.Connecting;
                         }
@@ -1343,7 +1349,7 @@ namespace Gurux.Terminal
                                 reply = SendCommand("AT\r", m_CommandWaitTime, null, true);
                                 if (string.Compare(reply, "OK", true) != 0)
                                 {
-                                    throw new Exception("Invalid reply.");
+                                    throw new Exception(Resources.InvalidReply);
                                 }
                             }                           
                             Progress = Progress.Connecting;
@@ -1406,7 +1412,7 @@ namespace Gurux.Terminal
                 {
                     if (throwError)
                     {
-                        throw new Exception("Failed to receive answer from the modem. Check serial port.");
+                        throw new Exception(Resources.FailedToReceiveAnswerFromTheModemCheckSerialPort);
                     }
                     return "";
                 }
@@ -1441,7 +1447,7 @@ namespace Gurux.Terminal
                                 index = reply.LastIndexOf("NO CARRIER");
                                 if (index != -1)
                                 {
-                                    string str = "Connection failed: no carrier (when telephone call was being established). ";
+                                    string str = Resources.ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished;
                                     int start = reply.IndexOf("CAUSE:");
                                     if (start != -1)
                                     {
@@ -1454,19 +1460,16 @@ namespace Gurux.Terminal
                                             str += reply.Substring(start).Trim();
                                         }
                                     }
-                                    else
-                                    {
-                                        str += SendCommand("AT+CEER\r", wt, null, false);
-                                    }
+                                    str += Environment.NewLine + SendCommand("AT+CEER\r", wt, null, false);                                    
                                     throw new Exception(str);
                                 }
                                 if (reply.LastIndexOf("ERROR") != -1)
                                 {
-                                    throw new Exception("Connection failed: error (when telephone call was being established).");
+                                    throw new Exception(Resources.ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished);
                                 }
                                 if (reply.LastIndexOf("BUSY") != -1)
                                 {
-                                    throw new Exception("Connection failed: busy (when telephone call was being established).");
+                                    throw new Exception(Resources.ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished);
                                 }
                             }
                         }
@@ -1630,8 +1633,7 @@ namespace Gurux.Terminal
             {
                 ((IGXMedia)this).ConfigurableSettings = (int)value;
             }
-        }
-
+        }      
 
         /// <inheritdoc cref="IGXMedia.Synchronous"/>
         public object Synchronous
@@ -1957,6 +1959,6 @@ namespace Gurux.Terminal
             }            
         }
 
-        #endregion
+        #endregion        
     }
 }

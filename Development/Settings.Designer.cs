@@ -69,11 +69,11 @@
             // ServerCB
             // 
             this.ServerCB.AutoSize = true;
-            this.ServerCB.Location = new System.Drawing.Point(12, 6);
+            this.ServerCB.Location = new System.Drawing.Point(4, 6);
             this.ServerCB.Name = "ServerCB";
-            this.ServerCB.Size = new System.Drawing.Size(57, 17);
+            this.ServerCB.Size = new System.Drawing.Size(64, 17);
             this.ServerCB.TabIndex = 13;
-            this.ServerCB.Text = "Server";
+            this.ServerCB.Text = "ServerX";
             this.ServerCB.UseVisualStyleBackColor = true;
             this.ServerCB.CheckedChanged += new System.EventHandler(this.ServerCB_CheckedChanged);
             // 
@@ -221,11 +221,11 @@
             // PortNameLbl
             // 
             this.PortNameLbl.AutoSize = true;
-            this.PortNameLbl.Location = new System.Drawing.Point(8, 8);
+            this.PortNameLbl.Location = new System.Drawing.Point(4, 8);
             this.PortNameLbl.Name = "PortNameLbl";
-            this.PortNameLbl.Size = new System.Drawing.Size(26, 13);
+            this.PortNameLbl.Size = new System.Drawing.Size(33, 13);
             this.PortNameLbl.TabIndex = 12;
-            this.PortNameLbl.Text = "Port";
+            this.PortNameLbl.Text = "PortX";
             // 
             // NumberPanel
             // 
@@ -247,11 +247,11 @@
             // NumberLbl
             // 
             this.NumberLbl.AutoSize = true;
-            this.NumberLbl.Location = new System.Drawing.Point(8, 8);
+            this.NumberLbl.Location = new System.Drawing.Point(4, 8);
             this.NumberLbl.Name = "NumberLbl";
-            this.NumberLbl.Size = new System.Drawing.Size(81, 13);
+            this.NumberLbl.Size = new System.Drawing.Size(88, 13);
             this.NumberLbl.TabIndex = 12;
-            this.NumberLbl.Text = "Phone Number:";
+            this.NumberLbl.Text = "Phone NumberX:";
             // 
             // Settings
             // 

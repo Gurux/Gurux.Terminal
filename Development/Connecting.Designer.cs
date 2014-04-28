@@ -1,4 +1,5 @@
-﻿namespace Gurux.Terminal
+﻿using Gurux.Terminal.Properties;
+namespace Gurux.Terminal
 {
     partial class Connecting
     {
@@ -56,7 +57,7 @@
             // 
             // panel1
             // 
-            this.panel1.BackgroundImage = global::Gurux.Terminal.Properties.Resources.Terminal;
+            this.panel1.BackgroundImage = Resources.terminal;
             this.panel1.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.panel1.Location = new System.Drawing.Point(12, 12);
             this.panel1.Name = "panel1";
@@ -80,7 +81,7 @@
             this.Name = "Connecting";
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            this.Text = "Connecting";
+            this.Text = "Connecting...";
             this.TopMost = true;
             this.ResumeLayout(false);
             this.PerformLayout();
