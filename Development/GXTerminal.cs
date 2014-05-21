@@ -99,8 +99,9 @@ namespace Gurux.Terminal
 	/// <summary>
 	/// A media component that enables communication of Terminal port.
 	/// </summary>
-    public class GXTerminal : Gurux.Common.IGXMedia, INotifyPropertyChanged, IDisposable
+    public class GXTerminal : IGXMedia, IGXVirtualMedia, INotifyPropertyChanged, IDisposable
     {
+        bool IsVirtual, VirtualOpen;
         int m_ConnectionWaitTime = 30000;
         int m_CommandWaitTime = 3000;
 
@@ -268,7 +269,7 @@ namespace Gurux.Terminal
             }
             if (m_Trace >= TraceLevel.Error && m_OnTrace != null)
             {
-                m_OnTrace(this, new TraceEventArgs(TraceTypes.Error, ex));
+                m_OnTrace(this, new TraceEventArgs(TraceTypes.Error, ex, null));
             }
         }
 
@@ -276,7 +277,7 @@ namespace Gurux.Terminal
         {
             if (m_Trace >= TraceLevel.Info && m_OnTrace != null)
             {
-                m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, state));
+                m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, state, null));
             }
             if (m_OnMediaStateChange != null)
             {
@@ -315,103 +316,74 @@ namespace Gurux.Terminal
             }
         }
 
+        private void HandleReceivedData(int index, byte[] buff, int totalCount)
+        {
+            if (totalCount != 0 && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
+            {
+                TraceEventArgs arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount, null);
+                m_OnTrace(this, arg);
+            }
+            lock (m_syncBase.m_ReceivedSync)
+            {
+                if (totalCount != 0 && Eop != null) //Search Eop if given.
+                {
+                    if (Eop is Array)
+                    {
+                        foreach (object eop in (Array)Eop)
+                        {
+                            totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(eop), index, m_syncBase.m_ReceivedSize);
+                            if (totalCount != -1)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(Eop), index, m_syncBase.m_ReceivedSize);
+                    }
+                }
+            }
+            if (this.IsSynchronous)
+            {
+                if (totalCount != -1)
+                {
+                    m_syncBase.m_ReceivedEvent.Set();
+                }
+            }
+            else if (this.m_OnReceived != null)
+            {
+                if (totalCount != -1)
+                {
+                    buff = new byte[m_syncBase.m_ReceivedSize];
+                    Array.Copy(m_syncBase.m_Received, buff, m_syncBase.m_ReceivedSize);
+                    m_syncBase.m_ReceivedSize = 0;
+                    m_OnReceived(this, new ReceiveEventArgs(buff, m_base.PortName));
+                }
+                else
+                {
+                    m_OnReceived(this, new ReceiveEventArgs(buff, m_base.PortName));
+                }
+            }
+        }
+
         internal void GXTerminal_DataReceived(object sender, System.IO.Ports.SerialDataReceivedEventArgs e)
         {
             try
             {
-                int count = 0, index = 0;
+                int count = 0;
+                int index = m_syncBase.m_ReceivedSize;
                 byte[] buff = null;
-                if (this.IsSynchronous)
+                int totalCount = 0;
+                while (IsOpen && (count = m_base.BytesToRead) != 0)
                 {
-                    TraceEventArgs arg = null;
-                    lock (m_syncBase.m_ReceivedSync)
-                    {
-                        int totalCount = 0;
-                        index = m_syncBase.m_ReceivedSize;
-                        while (m_base.IsOpen && (count = m_base.BytesToRead) != 0)
-                        {
-                            totalCount += count;
-                            buff = new byte[count];
-                            m_base.Read(buff, 0, count);
-                            m_syncBase.AppendData(buff, 0, count);
-                            m_BytesReceived += (uint)count;
-                        }
-                        if (totalCount != 0 && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
-                        {
-                            arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount);
-                            m_OnTrace(this, arg);
-                        }
-                        if (totalCount != 0 && Eop != null) //Search Eop if given.
-                        {
-                            if (Eop is Array)
-                            {
-                                foreach (object eop in (Array)Eop)
-                                {
-                                    totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(eop), index, m_syncBase.m_ReceivedSize);
-                                    if (totalCount != -1)
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(Eop), index, m_syncBase.m_ReceivedSize);
-                            }
-                        }
-                        if (totalCount != -1)
-                        {
-                            m_syncBase.m_ReceivedEvent.Set();                            
-                        }
-                        
-                    }                   
+                    totalCount += count;
+                    buff = new byte[count];
+                    m_base.Read(buff, 0, count);
+                    m_syncBase.AppendData(buff, 0, count);
+                    m_BytesReceived += (uint)count;
                 }
-                else if (this.m_OnReceived != null)
-                {
-                    int totalCount = 0;
-                    while (m_base.IsOpen && (count = m_base.BytesToRead) != 0)
-                    {
-                        index = m_syncBase.m_ReceivedSize;
-                        buff = new byte[count];
-                        totalCount += count;
-                        m_base.Read(buff, 0, count);
-                        m_BytesReceived += (uint)count;
-                        if (buff != null && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
-                        {
-                            m_OnTrace(this, new TraceEventArgs(TraceTypes.Received, buff));
-                        }
-                        if (Eop != null) //Search Eop if given.
-                        {
-                            m_syncBase.AppendData(buff, 0, count);
-                            if (Eop is Array)
-                            {
-                                foreach (object eop in (Array)Eop)
-                                {
-                                    totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(eop), index, m_syncBase.m_ReceivedSize);
-                                    if (totalCount != -1)
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(Eop), index, m_syncBase.m_ReceivedSize);
-                            }
-                            if (totalCount != -1)
-                            {
-                                buff = new byte[m_syncBase.m_ReceivedSize];
-                                Array.Copy(m_syncBase.m_Received, buff, m_syncBase.m_ReceivedSize);
-                                m_syncBase.m_ReceivedSize = 0;
-                                m_OnReceived(this, new ReceiveEventArgs(buff, this.PortName));                                
-                            }
-                        }
-                        else
-                        {
-                            m_OnReceived(this, new ReceiveEventArgs(buff, this.PortName));                            
-                        }
-                    }
-                }
+                HandleReceivedData(index, buff, totalCount);
             }
             catch (Exception ex)
             {
@@ -438,6 +410,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("BaudRate");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
                 lock (m_baseLock)
                 {
                     return m_base.BaudRate;
@@ -466,6 +446,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("BreakState");
+                    if (value != null)
+                    {
+                        return bool.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
 	                return m_base.BreakState;
@@ -560,6 +548,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("DataBits");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.DataBits;
@@ -590,6 +586,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("DiscardNull");
+                    if (value != null)
+                    {
+                        return bool.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.DiscardNull;
@@ -636,6 +640,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("DtrEnable");
+                    if (value != null)
+                    {
+                        return bool.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.DtrEnable;
@@ -695,6 +707,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("Handshake");
+                    if (value != null)
+                    {
+                        return (Handshake)int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.Handshake;
@@ -739,6 +759,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("Parity");
+                    if (value != null)
+                    {
+                        return (Parity)int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.Parity;
@@ -769,6 +797,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("ParityReplace");
+                    if (value != null)
+                    {
+                        return byte.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.ParityReplace;
@@ -796,6 +832,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("PhoneNumber");
+                    if (value != null)
+                    {
+                        return value;
+                    }
+                }
                 lock (m_baseLock)
                 {
                     return m_PhoneNumber;
@@ -823,6 +867,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("ConnectionWaitTime");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
                 lock (m_baseLock)
                 {
                     return m_ConnectionWaitTime;
@@ -850,6 +902,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("CommandWaitTime");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
                 lock (m_baseLock)
                 {
                     return m_CommandWaitTime;
@@ -880,6 +940,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("Server");
+                    if (value != null)
+                    {
+                        return bool.Parse(value);
+                    }
+                }
                 lock (m_baseLock)
                 {
                     return m_Server;
@@ -906,6 +974,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("PortName");
+                    if (value != null)
+                    {
+                        return value;
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.PortName;
@@ -936,6 +1012,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("ReadBufferSize");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.ReadBufferSize;
@@ -966,6 +1050,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("ReadTimeout");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.ReadTimeout;
@@ -996,6 +1088,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("ReceivedBytesThreshold");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.ReceivedBytesThreshold;
@@ -1026,6 +1126,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("RtsEnable");
+                    if (value != null)
+                    {
+                        return bool.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.RtsEnable;
@@ -1055,6 +1163,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("StopBits");
+                    if (value != null)
+                    {
+                        return (StopBits)int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.StopBits;
@@ -1085,6 +1201,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("WriteBufferSize");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.WriteBufferSize;
@@ -1115,6 +1239,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("WriteTimeout");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
 				lock(m_baseLock)
 				{
                 	return m_base.WriteTimeout;
@@ -1140,11 +1272,14 @@ namespace Gurux.Terminal
 		/// </summary>
         public void Close()
         {
-			bool bOpen;
-			lock(m_baseLock)
-			{
-				bOpen = m_base.IsOpen;
-			}
+            bool bOpen = VirtualOpen;
+            if (!IsVirtual)
+            {
+                lock (m_baseLock)
+                {
+                    bOpen = m_base.IsOpen;
+                }
+            }
             if (bOpen)
             {
                 try
@@ -1160,52 +1295,56 @@ namespace Gurux.Terminal
                 {
                     try
                     {
-                        //
-                        if (Progress != Progress.None)
+                        if (!IsVirtual)
                         {
-                            try
+                            //
+                            if (Progress != Progress.None)
                             {
-                                //Send AT
-                                lock (Synchronous)
+                                try
                                 {
-                                    if (Progress == Progress.Connected)
+                                    //Send AT
+                                    lock (Synchronous)
                                     {
-                                        //We are not expecting reply.
-                                        Thread.Sleep(1000);
-                                        Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
+                                        if (Progress == Progress.Connected)
                                         {
-                                            WaitTime = m_ConnectionWaitTime,
-                                            Count = 3
-                                        };
-                                        SendBytes(ASCIIEncoding.ASCII.GetBytes("+++"));
-                                        //It's OK if this fails.
-                                        Receive(p);
-                                        SendCommand("ATH0\r", m_ConnectionWaitTime, null, false);
+                                            //We are not expecting reply.
+                                            Thread.Sleep(1000);
+                                            Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
+                                            {
+                                                WaitTime = m_ConnectionWaitTime,
+                                                Count = 3
+                                            };
+                                            SendBytes(ASCIIEncoding.ASCII.GetBytes("+++"));
+                                            //It's OK if this fails.
+                                            Receive(p);
+                                            SendCommand("ATH0\r", m_ConnectionWaitTime, null, false);
+                                        }
                                     }
                                 }
+                                finally
+                                {
+                                    Progress = Progress.None;
+                                }
                             }
-                            finally
+                            if (m_Receiver != null)
                             {
-                                Progress = Progress.None;
+                                m_Receiver.Closing.Set();
+                            }
+                            lock (m_baseLock)
+                            {
+                                m_base.Close();
+                            }
+                            if (m_ReceiverThread != null && m_ReceiverThread.IsAlive)
+                            {
+                                m_ReceiverThread.Join();
                             }
                         }
-                        if (m_Receiver != null)
-                        {
-                            m_Receiver.Closing.Set();
-                        }
-                        lock (m_baseLock)
-                        {
-                            m_base.Close();
-                        }
-                        if (m_ReceiverThread != null && m_ReceiverThread.IsAlive)
-                        {
-                            m_ReceiverThread.Join();
-                        }                        
                     }
                     catch
                     {
                         //Ignore all errors on close.
                     }
+                    VirtualOpen = false;
                     NotifyMediaStateChange(MediaState.Closed);
                 }
             }
@@ -1274,36 +1413,36 @@ namespace Gurux.Terminal
                 if (m_Trace >= TraceLevel.Info && m_OnTrace != null)
                 {
                     string eop = Resources.None;
-                    if (Eop is byte[])
+                    if (m_Eop is byte[])
                     {
-                        eop = BitConverter.ToString(Eop as byte[], 0);
+                        eop = BitConverter.ToString(m_Eop as byte[], 0);
                     }
-                    else if (Eop != null)
+                    else if (m_Eop != null)
                     {
-                        eop = Eop.ToString();
+                        eop = m_Eop.ToString();
                     }
                     string str = string.Format("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11} {12} ", 
                         Resources.Settings,
                         Resources.Port,
-                        this.PortName,
+                        m_base.PortName,
                         Resources.BaudRate,
-                        BaudRate,
+                        m_base.BaudRate,
                         Resources.DataBits,
-                        DataBits,
+                        m_base.DataBits,
                         Resources.Parity,
-                        Parity,
+                        m_base.Parity,
                         Resources.StopBits,
-                        StopBits,
+                        m_base.StopBits,
                         Resources.Eop,
                         eop);
-                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, str));
+                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, str, null));
                 }
 				lock(m_baseLock)
 				{
                 	m_base.Open();
 				}
                 //Events are not currently implemented in Mono's Terminal port.
-                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                if (!IsVirtual && Environment.OSVersion.Platform == PlatformID.Unix)
                 {
                     m_Receiver = new ReceiveThread(this);
                     m_ReceiverThread = new Thread(new ThreadStart(m_Receiver.Receive));
@@ -1378,7 +1517,7 @@ namespace Gurux.Terminal
             {
                 if (m_Trace == TraceLevel.Verbose && m_OnTrace != null)
                 {
-                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value));
+                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value, null));
                 }
                 m_BytesSent += (uint)value.Length;
                 //Reset last position if Eop is used.
@@ -1619,6 +1758,8 @@ namespace Gurux.Terminal
         ClientDisconnectedEventHandler m_OnClientDisconnected;
         internal Gurux.Common.ErrorEventHandler m_OnError;
         ReceivedEventHandler m_OnReceived;
+        GetPropertyValueEventHandler m_OnGetPropertyValue;
+        ReceivedEventHandler m_OnDataSend;
 
         #endregion //Events
 
@@ -1633,7 +1774,78 @@ namespace Gurux.Terminal
             {
                 ((IGXMedia)this).ConfigurableSettings = (int)value;
             }
-        }      
+        }
+
+        /// <inheritdoc cref="IGXMedia.Tag"/>
+        public object Tag
+        {
+            get;
+            set;
+        }
+
+        /// <inheritdoc cref="IGXMedia.MediaContainer"/>
+        IGXMediaContainer IGXMedia.MediaContainer
+        {
+            get;
+            set;
+        }
+
+        /// <inheritdoc cref="IGXVirtualMedia.Virtual"/>
+        bool IGXVirtualMedia.Virtual
+        {
+            get
+            {
+                return IsVirtual;
+            }
+            set
+            {
+                IsVirtual = value;
+            }
+        }
+
+        /// <summary>
+        /// Occurs when a property value is asked.
+        /// </summary>
+        event GetPropertyValueEventHandler IGXVirtualMedia.OnGetPropertyValue
+        {
+            add
+            {
+                m_OnGetPropertyValue += value;
+            }
+            remove
+            {
+                m_OnGetPropertyValue -= value;
+            }
+        }
+
+        /// <summary>
+        /// Occurs when data is sent on virtual mode.
+        /// </summary>
+        event ReceivedEventHandler IGXVirtualMedia.OnDataSend
+        {
+            add
+            {
+                m_OnDataSend += value;
+            }
+            remove
+            {
+                m_OnDataSend -= value;
+            }
+        }        
+
+        /// <summary>
+        /// Called when new data is received to the virtual media.
+        /// </summary>
+        /// <param name="data">received data</param>
+        /// <param name="sender">Data sender.</param>
+        void IGXVirtualMedia.DataReceived(byte[] data, string sender)
+        {
+            int index = m_syncBase.m_ReceivedSize;
+            m_syncBase.AppendData(data, 0, data.Length);
+            m_BytesReceived += (uint)data.Length;
+            HandleReceivedData(index, data, data.Length);
+        }
+
 
         /// <inheritdoc cref="IGXMedia.Synchronous"/>
         public object Synchronous
@@ -1710,10 +1922,10 @@ namespace Gurux.Terminal
         void Gurux.Common.IGXMedia.Copy(object target)
         {
             GXTerminal Target = (GXTerminal)target;
-            BaudRate = Target.BaudRate;
-            StopBits = Target.StopBits;
-            Parity = Target.Parity;
-            DataBits = Target.DataBits;
+            m_base.BaudRate = Target.m_base.BaudRate;
+            m_base.StopBits = Target.m_base.StopBits;
+            m_base.Parity = Target.m_base.Parity;
+            m_base.DataBits = Target.m_base.DataBits;
         }
 
         /// <inheritdoc cref="IGXMedia.Eop"/>
@@ -1721,6 +1933,14 @@ namespace Gurux.Terminal
         {
             get
             {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("Eop");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
                 return m_Eop;
             }
             set
@@ -1751,37 +1971,37 @@ namespace Gurux.Terminal
             get
             {
                 string tmp = "";
-                if (!string.IsNullOrEmpty(PhoneNumber))
+                if (!string.IsNullOrEmpty(m_PhoneNumber))
                 {
-                    tmp += "<Number>" + PhoneNumber + "</Number>";
+                    tmp += "<Number>" + m_PhoneNumber + "</Number>";
                 }
                 if (Server)
                 {
                     tmp += "<Server>1</Server>";
                 }
-                if (!string.IsNullOrEmpty(PortName))
+                if (!string.IsNullOrEmpty(m_base.PortName))
                 {
-                    tmp += "<Port>" + PortName + "</Port>";
+                    tmp += "<Port>" + m_base.PortName + "</Port>";
                 }
-                if (BaudRate != 9600)
+                if (m_base.BaudRate != 9600)
                 {
-                    tmp += "<Bps>" + BaudRate + "</Bps>";
+                    tmp += "<Bps>" + m_base.BaudRate + "</Bps>";
                 }
-                if (this.StopBits != System.IO.Ports.StopBits.None)
+                if (m_base.StopBits != System.IO.Ports.StopBits.None)
                 {
-                    tmp += "<StopBits>" + (int)StopBits + "</StopBits>";
+                    tmp += "<StopBits>" + (int)m_base.StopBits + "</StopBits>";
                 }
-                if (this.Parity != System.IO.Ports.Parity.None)
+                if (m_base.Parity != System.IO.Ports.Parity.None)
                 {
-                    tmp += "<Parity>" + (int)Parity + "</Parity>";
+                    tmp += "<Parity>" + (int)m_base.Parity + "</Parity>";
                 }
-                if (this.DataBits != 8)
+                if (m_base.DataBits != 8)
                 {
-                    tmp += "<ByteSize>" + DataBits + "</ByteSize>";
+                    tmp += "<ByteSize>" + m_base.DataBits + "</ByteSize>";
                 }
                 if (this.InitializeCommands != null)
                 {
-                    tmp += "<Init>" + string.Join(";", this.InitializeCommands) + "</Init>";
+                    tmp += "<Init>" + string.Join(";", InitializeCommands) + "</Init>";
                 }
                 return tmp;
             }
@@ -1805,26 +2025,26 @@ namespace Gurux.Terminal
                                         InitializeCommands = xmlReader.ReadString().Split(new char[]{';'});
                                         break;
                                     case "Number":
-                                        PhoneNumber = xmlReader.ReadString();
+                                        m_PhoneNumber = xmlReader.ReadString();
                                         break;
                                     case "Server":
-                                        Server = Convert.ToInt32(xmlReader.ReadString()) != 0;
+                                        m_Server = Convert.ToInt32(xmlReader.ReadString()) != 0;
                                         break;
                                     case "Port":
-                                        PortName = xmlReader.ReadString();
+                                        m_base.PortName = xmlReader.ReadString();
                                         break;
                                     case "Bps":
-                                        BaudRate = Convert.ToInt32(xmlReader.ReadString());
+                                        m_base.BaudRate = Convert.ToInt32(xmlReader.ReadString());
                                         break;
                                     case "StopBits":
                                         str = xmlReader.ReadString();
                                         if (int.TryParse(str, out result))
                                         {
-                                            StopBits = (StopBits)result;
+                                            m_base.StopBits = (StopBits)result;
                                         }
                                         else
                                         {
-                                            StopBits = (StopBits)Enum.Parse(typeof(StopBits), str);
+                                            m_base.StopBits = (StopBits)Enum.Parse(typeof(StopBits), str);
                                         }
 
                                         break;
@@ -1832,15 +2052,15 @@ namespace Gurux.Terminal
                                         str = xmlReader.ReadString();
                                         if (int.TryParse(str, out result))
                                         {
-                                            Parity = (Parity)result;
+                                            m_base.Parity = (Parity)result;
                                         }
                                         else
                                         {
-                                            Parity = (Parity)Enum.Parse(typeof(System.IO.Ports.Parity), str);
+                                            m_base.Parity = (Parity)Enum.Parse(typeof(System.IO.Ports.Parity), str);
                                         }
                                         break;
                                     case "ByteSize":
-                                        DataBits = Convert.ToInt32(xmlReader.ReadString());
+                                        m_base.DataBits = Convert.ToInt32(xmlReader.ReadString());
                                         break;
                                 }
                             }
@@ -1870,7 +2090,7 @@ namespace Gurux.Terminal
         {
             get 
             {
-                return this.PortName;
+                return m_base.PortName;
             }
         }
 
@@ -1921,7 +2141,7 @@ namespace Gurux.Terminal
 			{
                 if (m_Trace == TraceLevel.Verbose && m_OnTrace != null)
                 {
-                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value));
+                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value, receiver));
                 }
             	m_BytesSent += (uint) value.Length;
                 //Reset last position if Eop is used.
@@ -1929,11 +2149,19 @@ namespace Gurux.Terminal
                 {
                     m_syncBase.m_LastPosition = 0;
                 }
-            	m_base.Write(value, 0, value.Length);
+                if (!IsVirtual)
+                {
+                    m_base.Write(value, 0, value.Length);
+                }
+                else
+                {
+                    m_OnDataSend(this, new ReceiveEventArgs(data, receiver));
+                }
 			}
         }
 
-        void Gurux.Common.IGXMedia.Validate()
+        /// <inheritdoc cref="IGXMedia.Validate"/>
+        public void Validate()
         {
             
         }

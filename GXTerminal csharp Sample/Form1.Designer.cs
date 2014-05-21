@@ -105,6 +105,7 @@ namespace GXTerminalSample
 		[System.Diagnostics.DebuggerStepThrough()]private void InitializeComponent()
 		{
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.Frame5 = new System.Windows.Forms.GroupBox();
             this.RSSITB = new System.Windows.Forms.TextBox();
             this.BERTB = new System.Windows.Forms.TextBox();
@@ -760,6 +761,7 @@ namespace GXTerminalSample
             this.Controls.Add(this.CloseBtn);
             this.Controls.Add(this.PropertiesBtn);
             this.Cursor = System.Windows.Forms.Cursors.Default;
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Location = new System.Drawing.Point(147, 109);
             this.Name = "Form1";
             this.RightToLeft = System.Windows.Forms.RightToLeft.No;

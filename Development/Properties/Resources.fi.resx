@@ -127,7 +127,7 @@
     <value>Ei mitään</value>
   </data>
   <data name="FailedToReceiveAnswerFromTheModemCheckSerialPort" xml:space="preserve">
-    <value>Eivät saaneet vastaustamodeemin . Tarkista sarjaportti .</value>
+    <value>Modeemi ei vastannut . Tarkista sarjaportti .</value>
   </data>
   <data name="Eop" xml:space="preserve">
     <value>Eop:</value>
@@ -148,7 +148,7 @@
     <value>Puhelinnumero</value>
   </data>
   <data name="SettingsTxt" xml:space="preserve">
-    <value>Serial Port Settings</value>
+    <value>Modeemi asetukset</value>
   </data>
   <data name="BaudRateTxt" xml:space="preserve">
     <value>Siirtonopeus</value>
@@ -163,7 +163,7 @@
     <value>Yhdistetään...</value>
   </data>
   <data name="ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Yhteys epäonnistui : ei carrier ( puhelun muodostamisen jälkeen) .</value>
+    <value>Yhteys epäonnistui : ei kantoaaltoa ( puhelun muodostamisen jälkeen) .</value>
   </data>
   <data name="ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
     <value>Yhteys epäonnistui : varattu ( puhelun muodostamisen jälkeen) .</value>
@@ -171,7 +171,7 @@
   <data name="ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
     <value>Yhteys epäonnistui : virhe ( puhelun muodostamisen jälkeen) .</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="terminal" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Terminal.ico;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>

@@ -93,6 +93,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Terminal.ico" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
@@ -151,6 +152,9 @@
     </PreBuildEvent>
     <PostBuildEvent>
     </PostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>Terminal.ico</ApplicationIcon>
   </PropertyGroup>
   <Import Project="$(MSBuildBinPath)/Microsoft.CSharp.targets" />
 </Project>
