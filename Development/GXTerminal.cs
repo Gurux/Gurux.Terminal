@@ -47,48 +47,7 @@ using System.Threading;
 using Gurux.Terminal.Properties;
 
 namespace Gurux.Terminal
-{
-    class ReceiveThread
-    {        
-        public ManualResetEvent Closing;
-        GXTerminal m_Parent;
-        public ReceiveThread(GXTerminal parent)
-        {
-            Closing = new ManualResetEvent(false);            
-            m_Parent = parent;
-        }
-
-        /// <summary>
-        /// Receive data from the server using the established socket connection
-        /// </summary>
-        /// <returns>The data received from the server</returns>
-        public void Receive()
-        {
-            try
-            {                				
-                while (!Closing.WaitOne(1))
-                {		
-                    if (m_Parent.BytesToRead > 0)
-                    {									
-                        m_Parent.GXTerminal_DataReceived(m_Parent, null);                        
-                    }
-                    else
-                    {
-                        Closing.WaitOne(100);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                m_Parent.NotifyError(ex);
-                if (!Closing.WaitOne(1))
-                {
-                    m_Parent.Close();
-                }
-            }            
-        }
-    }
-
+{    
     enum Progress
     {
         None,
@@ -98,12 +57,14 @@ namespace Gurux.Terminal
 
 	/// <summary>
 	/// A media component that enables communication of Terminal port.
+    /// See help in http://www.gurux.org/index.php?q=Gurux.Terminal
 	/// </summary>
     public class GXTerminal : IGXMedia, IGXVirtualMedia, INotifyPropertyChanged, IDisposable
     {
         bool IsVirtual, VirtualOpen;
         int m_ConnectionWaitTime = 30000;
         int m_CommandWaitTime = 3000;
+        private object m_sync = new object();
 
         Progress Progress;
         bool m_Server;
@@ -1788,6 +1749,22 @@ namespace Gurux.Terminal
         {
             get;
             set;
+        }
+
+        /// <inheritdoc cref="IGXMedia.SyncRoot"/>
+        [Browsable(false), ReadOnly(true)]
+        public object SyncRoot
+        {
+            get
+            {
+                //In some special cases when binary serialization is used this might be null
+                //after deserialize. Just set it.
+                if (m_sync == null)
+                {
+                    m_sync = new object();
+                }
+                return m_sync;
+            }
         }
 
         /// <inheritdoc cref="IGXVirtualMedia.Virtual"/>
