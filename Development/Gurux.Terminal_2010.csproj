@@ -57,6 +57,12 @@
     <ApplicationIcon>Terminal.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Gurux.Common">
+      <HintPath>packages\Gurux.Common.7.0.32.1\lib\net35\Gurux.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib">
+      <HintPath>packages\ICSharpCode.SharpZipLib.dll.0.85.4.369\lib\net20\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -133,16 +139,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Gurux.Terminal.snk" />
+    <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Gurux.Common\Development\Gurux.Common_2010.csproj">
-      <Project>{749652D4-4779-4869-AD81-5211A661CD1B}</Project>
-      <Name>Gurux.Common_2010</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="Terminal.ico" />
@@ -163,6 +164,9 @@
       <ProductName>Windows Installer 3.1</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Gurux.Common.XML" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

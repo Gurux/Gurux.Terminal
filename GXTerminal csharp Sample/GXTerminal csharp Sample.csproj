@@ -71,6 +71,12 @@
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Gurux.Common">
+      <HintPath>packages\Gurux.Common.7.0.32.1\lib\net35\Gurux.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib">
+      <HintPath>packages\ICSharpCode.SharpZipLib.dll.0.85.4.369\lib\net20\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System">
       <Name>System</Name>
@@ -93,6 +99,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Gurux.Common.XML" />
     <Content Include="Terminal.ico" />
   </ItemGroup>
   <ItemGroup>
@@ -132,16 +139,13 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Gurux.Common\Development\Gurux.Common_2008.csproj">
-      <Project>{749652D4-4779-4869-AD81-5211A661CD1B}</Project>
-      <Name>Gurux.Common_2008</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Development\Gurux.Terminal_2008.csproj">
+    <ProjectReference Include="..\Development\Gurux.Terminal_2010.csproj">
       <Project>{6210C774-782D-4292-AF4C-5998AC70BAFD}</Project>
       <Name>Gurux.Terminal_2008</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
