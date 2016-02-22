@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GXTerminal csharp Sample", "GXTerminal csharp Sample.csproj", "{A53A7751-E184-4F45-8617-6F607A49E280}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gurux.Terminal_2010", "..\Development\Gurux.Terminal_2010.csproj", "{6210C774-782D-4292-AF4C-5998AC70BAFD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gurux.Terminal", "..\Development\Gurux.Terminal.csproj", "{6210C774-782D-4292-AF4C-5998AC70BAFD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

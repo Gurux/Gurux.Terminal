@@ -284,7 +284,7 @@ namespace Gurux.Terminal
                 TraceEventArgs arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount, null);
                 m_OnTrace(this, arg);
             }
-            lock (m_syncBase.m_ReceivedSync)
+            lock (m_syncBase.receivedSync)
             {
                 if (totalCount != 0 && Eop != null) //Search Eop if given.
                 {
@@ -292,7 +292,7 @@ namespace Gurux.Terminal
                     {
                         foreach (object eop in (Array)Eop)
                         {
-                            totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(eop), index, m_syncBase.m_ReceivedSize);
+                            totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(eop), index, m_syncBase.receivedSize);
                             if (totalCount != -1)
                             {
                                 break;
@@ -301,7 +301,7 @@ namespace Gurux.Terminal
                     }
                     else
                     {
-                        totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(Eop), index, m_syncBase.m_ReceivedSize);
+                        totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(Eop), index, m_syncBase.receivedSize);
                     }
                 }
             }
@@ -309,16 +309,16 @@ namespace Gurux.Terminal
             {
                 if (totalCount != -1)
                 {
-                    m_syncBase.m_ReceivedEvent.Set();
+                    m_syncBase.receivedEvent.Set();
                 }
             }
             else if (this.m_OnReceived != null)
             {
                 if (totalCount != -1)
                 {
-                    buff = new byte[m_syncBase.m_ReceivedSize];
-                    Array.Copy(m_syncBase.m_Received, buff, m_syncBase.m_ReceivedSize);
-                    m_syncBase.m_ReceivedSize = 0;
+                    buff = new byte[m_syncBase.receivedSize];
+                    Array.Copy(m_syncBase.m_Received, buff, m_syncBase.receivedSize);
+                    m_syncBase.receivedSize = 0;
                     m_OnReceived(this, new ReceiveEventArgs(buff, m_base.PortName));
                 }
                 else
@@ -333,7 +333,7 @@ namespace Gurux.Terminal
             try
             {
                 int count = 0;
-                int index = m_syncBase.m_ReceivedSize;
+                int index = m_syncBase.receivedSize;
                 byte[] buff = null;
                 int totalCount = 0;
                 while (IsOpen && (count = m_base.BytesToRead) != 0)
@@ -351,7 +351,7 @@ namespace Gurux.Terminal
                 if (this.IsSynchronous)
                 {
                     m_syncBase.Exception = ex;
-                    m_syncBase.m_ReceivedEvent.Set();
+                    m_syncBase.receivedEvent.Set();
                 }
                 else
                 {
@@ -1366,9 +1366,9 @@ namespace Gurux.Terminal
             Close();
             try
             {
-                lock (m_syncBase.m_ReceivedSync)
+                lock (m_syncBase.receivedSync)
                 {
-                    m_syncBase.m_LastPosition = 0;
+                    m_syncBase.lastPosition = 0;
                 }
                 NotifyMediaStateChange(MediaState.Opening);
                 if (m_Trace >= TraceLevel.Info && m_OnTrace != null)
@@ -1482,9 +1482,9 @@ namespace Gurux.Terminal
                 }
                 m_BytesSent += (uint)value.Length;
                 //Reset last position if Eop is used.
-                lock (m_syncBase.m_ReceivedSync)
+                lock (m_syncBase.receivedSync)
                 {
-                    m_syncBase.m_LastPosition = 0;
+                    m_syncBase.lastPosition = 0;
                 }
                 m_base.Write(value, 0, value.Length);
             }
@@ -1817,7 +1817,7 @@ namespace Gurux.Terminal
         /// <param name="sender">Data sender.</param>
         void IGXVirtualMedia.DataReceived(byte[] data, string sender)
         {
-            int index = m_syncBase.m_ReceivedSize;
+            int index = m_syncBase.receivedSize;
             m_syncBase.AppendData(data, 0, data.Length);
             m_BytesReceived += (uint)data.Length;
             HandleReceivedData(index, data, data.Length);
@@ -1850,9 +1850,9 @@ namespace Gurux.Terminal
         /// <inheritdoc cref="IGXMedia.ResetSynchronousBuffer"/>
         public void ResetSynchronousBuffer()
         {
-            lock (m_syncBase.m_ReceivedSync)
+            lock (m_syncBase.receivedSync)
             {
-                m_syncBase.m_ReceivedSize = 0;
+                m_syncBase.receivedSize = 0;
             }
         }
 
@@ -2122,9 +2122,9 @@ namespace Gurux.Terminal
                 }
             	m_BytesSent += (uint) value.Length;
                 //Reset last position if Eop is used.
-                lock (m_syncBase.m_ReceivedSync)
+                lock (m_syncBase.receivedSync)
                 {
-                    m_syncBase.m_LastPosition = 0;
+                    m_syncBase.lastPosition = 0;
                 }
                 if (!IsVirtual)
                 {

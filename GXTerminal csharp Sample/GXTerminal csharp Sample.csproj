@@ -139,7 +139,7 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Development\Gurux.Terminal_2010.csproj">
+    <ProjectReference Include="..\Development\Gurux.Terminal.csproj">
       <Project>{6210C774-782D-4292-AF4C-5998AC70BAFD}</Project>
       <Name>Gurux.Terminal_2008</Name>
     </ProjectReference>

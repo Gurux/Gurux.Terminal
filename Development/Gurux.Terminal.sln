@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gurux.Terminal_2010", "Gurux.Terminal_2010.csproj", "{6210C774-782D-4292-AF4C-5998AC70BAFD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gurux.Terminal", "Gurux.Terminal.csproj", "{6210C774-782D-4292-AF4C-5998AC70BAFD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
