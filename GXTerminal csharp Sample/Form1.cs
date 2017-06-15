@@ -45,7 +45,7 @@ using Gurux.Common;
 
 namespace GXTerminalSample
 {
-	internal partial class Form1 : System.Windows.Forms.Form
+    internal partial class Form1 : System.Windows.Forms.Form
     {
 
         #region Close
@@ -55,16 +55,16 @@ namespace GXTerminalSample
 		/// <param name="eventSender"></param>
 		/// <param name="eventArgs"></param>
 		private void CloseBtn_Click(System.Object eventSender, System.EventArgs eventArgs)
-		{
-			try
-			{
-				gxTerminal1.Close();
-			}
+        {
+            try
+            {
+                gxTerminal1.Close();
+            }
             catch (Exception Ex)
             {
                 MessageBox.Show(Ex.Message);
             }
-		}
+        }
         #endregion //Close
 
         #region OnError
@@ -95,44 +95,44 @@ namespace GXTerminalSample
         /// <param name="e"></param>
         private void gxTerminal1_OnMediaStateChange(object sender, MediaStateEventArgs e)
         {
-			try
-			{
-				bool bOpen;
+            try
+            {
+                bool bOpen;
                 bOpen = e.State == Gurux.Common.MediaState.Open;
-				HexCB.Enabled = ! bOpen;
-				OpenBtn.Enabled = ! bOpen;
-				SendText.Enabled = bOpen;
-				SendBtn.Enabled = bOpen;
-				CloseBtn.Enabled = bOpen;
-				ReceivedText.Enabled = bOpen;
-				StatusTimer.Enabled = bOpen;				
-				PacketCounterTimer.Enabled = bOpen;
-				//Close interval timer if media is closed.
-				if (!bOpen)
-				{
-					IntervalTB.Enabled = false;
-					IntervalTimer.Enabled = false;
-					IntervalBtn.Enabled = false;
-				}
-				else
-				{
-					IntervalTB.Enabled = true;
-					IntervalBtn.Enabled = true;
-				}
-				//Read network status if media is opened.
-				if (bOpen)
-				{
-					StatusTimer_Tick(StatusTimer, new System.EventArgs());
-				}
-				else
-				{
-					RSSITB.Text = "";
-					BERTB.Text = "";
-					BatteryCapacityTB.Text = "";
-					PowerConsumptionTB.Text = "";
-					NetworkStatusTB.Text = "";
-				}
-			}
+                HexCB.Enabled = !bOpen;
+                OpenBtn.Enabled = !bOpen;
+                SendText.Enabled = bOpen;
+                SendBtn.Enabled = bOpen;
+                CloseBtn.Enabled = bOpen;
+                ReceivedText.Enabled = bOpen;
+                StatusTimer.Enabled = bOpen;
+                PacketCounterTimer.Enabled = bOpen;
+                //Close interval timer if media is closed.
+                if (!bOpen)
+                {
+                    IntervalTB.Enabled = false;
+                    IntervalTimer.Enabled = false;
+                    IntervalBtn.Enabled = false;
+                }
+                else
+                {
+                    IntervalTB.Enabled = true;
+                    IntervalBtn.Enabled = true;
+                }
+                //Read network status if media is opened.
+                if (bOpen)
+                {
+                    StatusTimer_Tick(StatusTimer, new System.EventArgs());
+                }
+                else
+                {
+                    RSSITB.Text = "";
+                    BERTB.Text = "";
+                    BatteryCapacityTB.Text = "";
+                    PowerConsumptionTB.Text = "";
+                    NetworkStatusTB.Text = "";
+                }
+            }
             catch (Exception Ex)
             {
                 MessageBox.Show(Ex.Message);
@@ -195,7 +195,7 @@ namespace GXTerminalSample
 		/// <param name="eventSender"></param>
 		/// <param name="eventArgs"></param>
 		private void IntervalTimer_Tick(System.Object eventSender, System.EventArgs eventArgs)
-		{
+        {
             try
             {
                 SendBtn_Click(SendBtn, new System.EventArgs());
@@ -211,31 +211,31 @@ namespace GXTerminalSample
         /// Open Terminal connection.
 		/// </summary>
 		private void OpenBtn_Click(System.Object eventSender, System.EventArgs eventArgs)
-		{
-			try
-			{
-				gxTerminal1.Open();
-			}
+        {
+            try
+            {
+                gxTerminal1.Open();
+            }
             catch (Exception Ex)
             {
                 MessageBox.Show(Ex.Message);
             }
         }
         #endregion //Open
-        
+
         /// <summary>
         /// Update sent/received byte counts.
-		/// </summary>
-		/// <param name="eventSender"></param>
-		/// <param name="eventArgs"></param>
-		private void PacketCounterTimer_Tick(System.Object eventSender, System.EventArgs eventArgs)
-		{
-			try
-			{
-				ReceivedTB.Text = gxTerminal1.BytesReceived.ToString();
-				SentTB.Text = gxTerminal1.BytesSent.ToString();
-				gxTerminal1.ResetByteCounters();
-			}
+        /// </summary>
+        /// <param name="eventSender"></param>
+        /// <param name="eventArgs"></param>
+        private void PacketCounterTimer_Tick(System.Object eventSender, System.EventArgs eventArgs)
+        {
+            try
+            {
+                ReceivedTB.Text = gxTerminal1.BytesReceived.ToString();
+                SentTB.Text = gxTerminal1.BytesSent.ToString();
+                gxTerminal1.ResetByteCounters();
+            }
             catch (Exception Ex)
             {
                 MessageBox.Show(Ex.Message);
@@ -248,15 +248,15 @@ namespace GXTerminalSample
         /// Show GXTerminal media properties.
 		/// </summary>
 		private void PropertiesBtn_Click(System.Object eventSender, System.EventArgs eventArgs)
-		{
-			try
-			{
+        {
+            try
+            {
                 if (gxTerminal1.Properties(this))
                 {
                     GXTerminalSample.Properties.Settings.Default.MediaSetting = gxTerminal1.Settings;
                     GXTerminalSample.Properties.Settings.Default.Save();
                 }
-			}
+            }
             catch (Exception Ex)
             {
                 MessageBox.Show(Ex.Message);
@@ -271,7 +271,7 @@ namespace GXTerminalSample
 		/// <param name="eventSender"></param>
 		/// <param name="eventArgs"></param>
 		private void SendBtn_Click(System.Object eventSender, System.EventArgs eventArgs)
-		{
+        {
             try
             {
                 ReceivedText.Text = string.Empty;
@@ -341,40 +341,10 @@ namespace GXTerminalSample
         /// <param name="eventSender"></param>
         /// <param name="eventArgs"></param>
 		private void StatusTimer_Tick(System.Object eventSender, System.EventArgs eventArgs)
-		{
-			try
-			{
-                /*
-				int RSSI = 0, BER = 0, BatteryCapacity = 0, AveragePowerConsumption = 0;
-                gxTerminal1.GetSignalQuality(out RSSI, out BER);
-                gxTerminal1.GetBatteryCharge(out BatteryCapacity, out AveragePowerConsumption);
-                RSSITB.Text = RSSI.ToString();
-                BERTB.Text = BER.ToString();
-                BatteryCapacityTB.Text = BatteryCapacity.ToString();
-                PowerConsumptionTB.Text = AveragePowerConsumption.ToString();
-                switch ((int)gxTerminal1.GetNetworkStatus())
-                {
-                    case (int)Gurux.Terminal.NetworkStatus.NotRegistered:
-                        NetworkStatusTB.Text = "Not Registered";
-                        break;
-                    case (int)Gurux.Terminal.NetworkStatus.Home:
-                        NetworkStatusTB.Text = "Home";
-                        break;
-                    case (int)Gurux.Terminal.NetworkStatus.Searching:
-                        NetworkStatusTB.Text = "Searching";
-                        break;
-                    case (int)Gurux.Terminal.NetworkStatus.Denied:
-                        NetworkStatusTB.Text = "Denied";
-                        break;
-                    case (int)Gurux.Terminal.NetworkStatus.Unknown:
-                        NetworkStatusTB.Text = "Unknown";
-                        break;
-                    case (int)Gurux.Terminal.NetworkStatus.Roaming:
-                        NetworkStatusTB.Text = "Roaming";
-                        break;
-                }
-                 * */ // Mikko TODO:
-			}
+        {
+            try
+            {
+            }
             catch (Exception Ex)
             {
                 MessageBox.Show(Ex.Message);
@@ -384,7 +354,7 @@ namespace GXTerminalSample
                 PowerConsumptionTB.Text = "";
                 NetworkStatusTB.Text = "";
             }
-		}
+        }
 
         /// <summary>
         /// End of Packet is used only when data is send synchronously.
@@ -425,11 +395,11 @@ namespace GXTerminalSample
             {
                 System.Diagnostics.Debug.WriteLine("-> " + e.ToString());
             }
-        } 
+        }
 
 
         private void Form1_Load(object sender, EventArgs e)
-        {            
+        {
             try
             {
                 gxTerminal1 = new GXTerminal();
@@ -453,6 +423,6 @@ namespace GXTerminalSample
             {
                 MessageBox.Show(Ex.Message);
             }
-        }       
-	}
+        }
+    }
 }

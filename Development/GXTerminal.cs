@@ -47,7 +47,7 @@ using System.Threading;
 using Gurux.Terminal.Properties;
 
 namespace Gurux.Terminal
-{    
+{
     enum Progress
     {
         None,
@@ -55,34 +55,34 @@ namespace Gurux.Terminal
         Connected
     }
 
-	/// <summary>
-	/// A media component that enables communication of Terminal port.
+    /// <summary>
+    /// A media component that enables communication of Terminal port.
     /// See help in http://www.gurux.org/index.php?q=Gurux.Terminal
-	/// </summary>
+    /// </summary>
     public class GXTerminal : IGXMedia, IGXVirtualMedia, INotifyPropertyChanged, IDisposable
     {
         bool IsVirtual, VirtualOpen;
-        int m_ConnectionWaitTime = 30000;
-        int m_CommandWaitTime = 3000;
+        int connectionWaitTime = 30000;
+        int commandWaitTime = 3000;
         private object m_sync = new object();
 
-        Progress Progress;
-        bool m_Server;
-        string m_PhoneNumber;
-        TraceLevel m_Trace;
+        Progress progress;
+        bool server;
+        string phoneNumber;
+        TraceLevel trace;
         static Dictionary<string, List<int>> BaudRates = new Dictionary<string, List<int>>();
         object m_Eop;
         GXSynchronousMediaBase m_syncBase;
-        UInt64 m_BytesSent, m_BytesReceived;
-        readonly object m_Synchronous = new object();        
-		readonly object m_baseLock = new object();
+        UInt64 bytesSent, bytesReceived;
+        readonly object synchronous = new object();
+        readonly object baseLock = new object();
         internal System.IO.Ports.SerialPort m_base = new System.IO.Ports.SerialPort();
-        ReceiveThread m_Receiver;
-        Thread m_ReceiverThread;
+        ReceiveThread receiver;
+        Thread receiverThread;
 
-		/// <summary>
-		/// Get baud rates supported by given Terminal port.
-		/// </summary>
+        /// <summary>
+        /// Get baud rates supported by given Terminal port.
+        /// </summary>
         static public int[] GetAvailableBaudRates(string portName)
         {
             if (BaudRates.ContainsKey(portName.ToLower()))
@@ -91,7 +91,7 @@ namespace Gurux.Terminal
             }
             if (string.IsNullOrEmpty(portName))
             {
-                portName = GXTerminal.GetPortNames()[0];                 
+                portName = GXTerminal.GetPortNames()[0];
             }
             List<int> items = new List<int>();
             BaudRates[portName.ToLower()] = items;
@@ -102,100 +102,100 @@ namespace Gurux.Terminal
                 {
                     port.Open();
                     FieldInfo fi = port.BaseStream.GetType().GetField("commProp", BindingFlags.Instance | BindingFlags.NonPublic);
-					if (fi != null)
-					{
-						object p = fi.GetValue(port.BaseStream);
-                    	value = (Int32)p.GetType().GetField("dwSettableBaud", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetValue(p);
-					}
+                    if (fi != null)
+                    {
+                        object p = fi.GetValue(port.BaseStream);
+                        value = (Int32)p.GetType().GetField("dwSettableBaud", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetValue(p);
+                    }
                 }
-				if (value != 0)
-				{
-	                if ((value & 0x1) != 0)
-	                {
-	                    items.Add(75);
-	                }
-	                if ((value & 0x2) != 0)
-	                {
-	                    items.Add(110);
-	                }
-	                if ((value & 0x8) != 0)
-	                {
-	                    items.Add(150);
-	                }
-	                if ((value & 0x10) != 0)
-	                {
-	                    items.Add(300);
-	                }
-	                if ((value & 0x20) != 0)
-	                {
-	                    items.Add(600);
-	                }
-	                if ((value & 0x40) != 0)
-	                {
-	                    items.Add(1200);
-	                }
-	                if ((value & 0x80) != 0)
-	                {
-	                    items.Add(1800);
-	                }
-	                if ((value & 0x100) != 0)
-	                {
-	                    items.Add(2400);
-	                }
-	                if ((value & 0x200) != 0)
-	                {
-	                    items.Add(4800);
-	                }
-	                if ((value & 0x400) != 0)
-	                {
-	                    items.Add(7200);
-	                }
-	                if ((value & 0x800) != 0)
-	                {
-	                    items.Add(9600);
-	                }
-	                if ((value & 0x1000) != 0)
-	                {
-	                    items.Add(14400);
-	                }
-	                if ((value & 0x2000) != 0)
-	                {
-	                    items.Add(19200);
-	                }
-	                if ((value & 0x4000) != 0)
-	                {
-	                    items.Add(38400);
-	                }
-	                if ((value & 0x8000) != 0)
-	                {
-	                    items.Add(56000);
-	                }
-	                if ((value & 0x40000) != 0)
-	                {
-	                    items.Add(57600);
-	                }
-	                if ((value & 0x20000) != 0)
-	                {
-	                    items.Add(115200);
-	                }
-	                if ((value & 0x10000) != 0)
-	                {
-	                    items.Add(128000);
-	                }
-	                if ((value & 0x10000000) != 0) //Programmable baud rate.
-	                {
-	                    items.Add(0);
-	                }
-				}
+                if (value != 0)
+                {
+                    if ((value & 0x1) != 0)
+                    {
+                        items.Add(75);
+                    }
+                    if ((value & 0x2) != 0)
+                    {
+                        items.Add(110);
+                    }
+                    if ((value & 0x8) != 0)
+                    {
+                        items.Add(150);
+                    }
+                    if ((value & 0x10) != 0)
+                    {
+                        items.Add(300);
+                    }
+                    if ((value & 0x20) != 0)
+                    {
+                        items.Add(600);
+                    }
+                    if ((value & 0x40) != 0)
+                    {
+                        items.Add(1200);
+                    }
+                    if ((value & 0x80) != 0)
+                    {
+                        items.Add(1800);
+                    }
+                    if ((value & 0x100) != 0)
+                    {
+                        items.Add(2400);
+                    }
+                    if ((value & 0x200) != 0)
+                    {
+                        items.Add(4800);
+                    }
+                    if ((value & 0x400) != 0)
+                    {
+                        items.Add(7200);
+                    }
+                    if ((value & 0x800) != 0)
+                    {
+                        items.Add(9600);
+                    }
+                    if ((value & 0x1000) != 0)
+                    {
+                        items.Add(14400);
+                    }
+                    if ((value & 0x2000) != 0)
+                    {
+                        items.Add(19200);
+                    }
+                    if ((value & 0x4000) != 0)
+                    {
+                        items.Add(38400);
+                    }
+                    if ((value & 0x8000) != 0)
+                    {
+                        items.Add(56000);
+                    }
+                    if ((value & 0x40000) != 0)
+                    {
+                        items.Add(57600);
+                    }
+                    if ((value & 0x20000) != 0)
+                    {
+                        items.Add(115200);
+                    }
+                    if ((value & 0x10000) != 0)
+                    {
+                        items.Add(128000);
+                    }
+                    if ((value & 0x10000000) != 0) //Programmable baud rate.
+                    {
+                        items.Add(0);
+                    }
+                }
             }
             catch
-            {        
-				items.Clear ();
+            {
+                items.Clear();
             }
-			//Add default baud rates.
-			if (items.Count == 0)
-			{
-				items.Add(300);
+            //Add default baud rates.
+            if (items.Count == 0)
+            {
+                items.Add(300);
                 items.Add(600);
                 items.Add(1800);
                 items.Add(2400);
@@ -204,7 +204,7 @@ namespace Gurux.Terminal
                 items.Add(19200);
                 items.Add(38400);
                 items.Add(0); //Programmable baud rate.	
-			}
+            }
             return items.ToArray();
         }
 
@@ -214,12 +214,12 @@ namespace Gurux.Terminal
         public GXTerminal()
         {
             ConfigurableSettings = AvailableMediaSettings.All;
-            m_syncBase = new GXSynchronousMediaBase(1024);            
+            m_syncBase = new GXSynchronousMediaBase(1024);
             //Events are not currently implemented in Mono's Terminal port.
             if (Environment.OSVersion.Platform != PlatformID.Unix)
             {
                 m_base.DataReceived += new System.IO.Ports.SerialDataReceivedEventHandler(GXTerminal_DataReceived);
-            }         
+            }
         }
 
         internal void NotifyError(Exception ex)
@@ -228,7 +228,7 @@ namespace Gurux.Terminal
             {
                 m_OnError(this, ex);
             }
-            if (m_Trace >= TraceLevel.Error && m_OnTrace != null)
+            if (trace >= TraceLevel.Error && m_OnTrace != null)
             {
                 m_OnTrace(this, new TraceEventArgs(TraceTypes.Error, ex, null));
             }
@@ -236,7 +236,7 @@ namespace Gurux.Terminal
 
         void NotifyMediaStateChange(MediaState state)
         {
-            if (m_Trace >= TraceLevel.Info && m_OnTrace != null)
+            if (trace >= TraceLevel.Info && m_OnTrace != null)
             {
                 m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, state, null));
             }
@@ -246,20 +246,20 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// What level of tracing is used.
-		/// </summary>
-		public TraceLevel Trace
-		{
+        /// <summary>
+        /// What level of tracing is used.
+        /// </summary>
+        public TraceLevel Trace
+        {
             get
             {
-                return m_Trace;
+                return trace;
             }
             set
             {
-                m_Trace = m_syncBase.Trace = value;
+                trace = m_syncBase.Trace = value;
             }
-		}
+        }
 
         /// <summary>
         /// Gets the underlying System.IO.Stream object for a System.IO.Ports.SerialPort object.
@@ -270,7 +270,7 @@ namespace Gurux.Terminal
         {
             get
             {
-                lock (m_baseLock)
+                lock (baseLock)
                 {
                     return m_base.BaseStream;
                 }
@@ -279,7 +279,7 @@ namespace Gurux.Terminal
 
         private void HandleReceivedData(int index, byte[] buff, int totalCount)
         {
-            if (totalCount != 0 && m_Trace == TraceLevel.Verbose && m_OnTrace != null)
+            if (totalCount != 0 && trace == TraceLevel.Verbose && m_OnTrace != null)
             {
                 TraceEventArgs arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount, null);
                 m_OnTrace(this, arg);
@@ -342,7 +342,7 @@ namespace Gurux.Terminal
                     buff = new byte[count];
                     m_base.Read(buff, 0, count);
                     m_syncBase.AppendData(buff, 0, count);
-                    m_BytesReceived += (uint)count;
+                    bytesReceived += (uint)count;
                 }
                 HandleReceivedData(index, buff, totalCount);
             }
@@ -360,14 +360,14 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// Used baud rate for communication.
-		/// </summary>
-		/// <remarks>Can be changed without disconnecting.</remarks>
+        /// <summary>
+        /// Used baud rate for communication.
+        /// </summary>
+        /// <remarks>Can be changed without disconnecting.</remarks>
         [Browsable(true)]
         [DefaultValue(9600)]
         [MonitoringDescription("BaudRate")]
-        public int BaudRate 
+        public int BaudRate
         {
             get
             {
@@ -379,14 +379,14 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-                lock (m_baseLock)
+                lock (baseLock)
                 {
                     return m_base.BaudRate;
                 }
             }
             set
             {
-                lock (m_baseLock)
+                lock (baseLock)
                 {
                     bool change = m_base.BaudRate != value;
                     m_base.BaudRate = value;
@@ -398,9 +398,9 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// True if the port is in a break state; otherwise, false.
-		/// </summary>
+        /// <summary>
+        /// True if the port is in a break state; otherwise, false.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         [Browsable(false)]
         public bool BreakState
@@ -415,93 +415,93 @@ namespace Gurux.Terminal
                         return bool.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-	                return m_base.BreakState;
-				}
+                lock (baseLock)
+                {
+                    return m_base.BreakState;
+                }
             }
             set
-            {                
-				bool change;
-				lock(m_baseLock)
-				{
-	                change = m_base.BreakState != value;
-	                m_base.BreakState = value;
-				}
-	            if (change)
-                {                    
+            {
+                bool change;
+                lock (baseLock)
+                {
+                    change = m_base.BreakState != value;
+                    m_base.BreakState = value;
+                }
+                if (change)
+                {
                     NotifyPropertyChanged("BreakState");
                 }
             }
         }
 
-		/// <summary>
-		/// Gets the number of bytes in the receive buffer.
-		/// </summary>
+        /// <summary>
+        /// Gets the number of bytes in the receive buffer.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         [Browsable(false)]
         public int BytesToRead
         {
             get
             {
-				lock(m_baseLock)
-				{
-                	return m_base.BytesToRead;
-				}
+                lock (baseLock)
+                {
+                    return m_base.BytesToRead;
+                }
             }
         }
-       
-		/// <summary>
-		/// Gets the number of bytes in the send buffer.
-		/// </summary>
+
+        /// <summary>
+        /// Gets the number of bytes in the send buffer.
+        /// </summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public int BytesToWrite
         {
             get
             {
-				lock(m_baseLock)
-				{
-	                return m_base.BytesToWrite;
-				}
+                lock (baseLock)
+                {
+                    return m_base.BytesToWrite;
+                }
             }
         }
 
-		/// <summary>
-		/// Gets the state of the Carrier Detect line for the port.
-		/// </summary>
+        /// <summary>
+        /// Gets the state of the Carrier Detect line for the port.
+        /// </summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool CDHolding 
+        public bool CDHolding
         {
             get
             {
-				lock(m_baseLock)
-				{
-                	return m_base.CDHolding;
-				}
+                lock (baseLock)
+                {
+                    return m_base.CDHolding;
+                }
             }
         }
-       
-		/// <summary>
-		/// Gets the state of the Clear-to-Send line.
-		/// </summary>
+
+        /// <summary>
+        /// Gets the state of the Clear-to-Send line.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         [Browsable(false)]
         public bool CtsHolding
         {
             get
             {
-				lock(m_baseLock)
-				{
-                	return m_base.CtsHolding;
-				}
+                lock (baseLock)
+                {
+                    return m_base.CtsHolding;
+                }
             }
         }
 
-		/// <summary>
-		/// Gets or sets the standard length of data bits per byte.
-		/// </summary>
+        /// <summary>
+        /// Gets or sets the standard length of data bits per byte.
+        /// </summary>
         [MonitoringDescription("DataBits")]
         [DefaultValue(8)]
         [Browsable(true)]
@@ -517,29 +517,29 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.DataBits;
-				}
+                lock (baseLock)
+                {
+                    return m_base.DataBits;
+                }
             }
             set
             {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.DataBits != value;
-                	m_base.DataBits = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.DataBits != value;
+                    m_base.DataBits = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("DataBits");
                 }
             }
         }
-       
-		/// <summary>
-		/// Gets or sets a value indicating whether null bytes are ignored when transmitted between the port and the receive buffer.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets a value indicating whether null bytes are ignored when transmitted between the port and the receive buffer.
+        /// </summary>
         [Browsable(true)]
         [DefaultValue(false)]
         [MonitoringDescription("DiscardNull")]
@@ -555,19 +555,19 @@ namespace Gurux.Terminal
                         return bool.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.DiscardNull;
-				}
+                lock (baseLock)
+                {
+                    return m_base.DiscardNull;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.DiscardNull != value;
-                	m_base.DiscardNull = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.DiscardNull != value;
+                    m_base.DiscardNull = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("DiscardNull");
@@ -575,25 +575,25 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// Gets the state of the Data Set Ready (DSR) signal.
-		/// </summary>
+        /// <summary>
+        /// Gets the state of the Data Set Ready (DSR) signal.
+        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         [Browsable(false)]
         public bool DsrHolding
         {
             get
             {
-				lock(m_baseLock)
-				{
-                	return m_base.DsrHolding;
-				}
+                lock (baseLock)
+                {
+                    return m_base.DsrHolding;
+                }
             }
         }
-       
-		/// <summary>
-		/// Gets or sets a value that enables the Data Terminal Ready (DTR) signal during Terminal communication.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets a value that enables the Data Terminal Ready (DTR) signal during Terminal communication.
+        /// </summary>
         [DefaultValue(false)]
         [MonitoringDescription("DtrEnable")]
         [Browsable(true)]
@@ -609,29 +609,29 @@ namespace Gurux.Terminal
                         return bool.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.DtrEnable;
-				}
+                lock (baseLock)
+                {
+                    return m_base.DtrEnable;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.DtrEnable != value;
-                	m_base.DtrEnable = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.DtrEnable != value;
+                    m_base.DtrEnable = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("DtrEnable");
                 }
             }
         }
-       
-		/// <summary>
-		/// Gets or sets the byte encoding for pre- and post-transmission conversion of text.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets the byte encoding for pre- and post-transmission conversion of text.
+        /// </summary>
         [MonitoringDescription("Encoding")]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         [Browsable(false)]
@@ -639,29 +639,29 @@ namespace Gurux.Terminal
         {
             get
             {
-				lock(m_baseLock)
-				{
-                	return m_base.Encoding;
-				}
+                lock (baseLock)
+                {
+                    return m_base.Encoding;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.Encoding != value;
-                	m_base.Encoding = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.Encoding != value;
+                    m_base.Encoding = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("Encoding");
                 }
             }
         }
-        
-		/// <summary>
-		/// Gets or sets the handshaking protocol for Terminal port transmission of data.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets the handshaking protocol for Terminal port transmission of data.
+        /// </summary>
         [Browsable(true)]
         [MonitoringDescription("Handshake")]
         public Handshake Handshake
@@ -676,44 +676,44 @@ namespace Gurux.Terminal
                         return (Handshake)int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.Handshake;
-				}
+                lock (baseLock)
+                {
+                    return m_base.Handshake;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.Handshake != value;
-                	m_base.Handshake = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.Handshake != value;
+                    m_base.Handshake = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("Handshake");
                 }
             }
         }
-        
-		/// <summary>
-		/// Gets a value indicating the open or closed status of the System.IO.Ports.SerialPort object.
-		/// </summary>
+
+        /// <summary>
+        /// Gets a value indicating the open or closed status of the System.IO.Ports.SerialPort object.
+        /// </summary>
         [Browsable(false)]
         public bool IsOpen
         {
             get
             {
-				lock(m_baseLock)
-				{
-                	return m_base.IsOpen;
-				}
-            }            
+                lock (baseLock)
+                {
+                    return m_base.IsOpen;
+                }
+            }
         }
 
-		/// <summary>
-		/// Gets or sets the parity-checking protocol.
-		/// </summary>
+        /// <summary>
+        /// Gets or sets the parity-checking protocol.
+        /// </summary>
         [Browsable(true)]
         [MonitoringDescription("Parity")]
         public Parity Parity
@@ -728,19 +728,19 @@ namespace Gurux.Terminal
                         return (Parity)int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.Parity;
-				}
+                lock (baseLock)
+                {
+                    return m_base.Parity;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.Parity != value;
-                	m_base.Parity = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.Parity != value;
+                    m_base.Parity = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("Parity");
@@ -748,9 +748,9 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// Gets or sets the byte that replaces invalid bytes in a data stream when a parity error occurs.
-		/// </summary>
+        /// <summary>
+        /// Gets or sets the byte that replaces invalid bytes in a data stream when a parity error occurs.
+        /// </summary>
         [Browsable(true)]
         [MonitoringDescription("ParityReplace")]
         [DefaultValue(63)]
@@ -766,25 +766,25 @@ namespace Gurux.Terminal
                         return byte.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.ParityReplace;
-				}
+                lock (baseLock)
+                {
+                    return m_base.ParityReplace;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.ParityReplace != value;
-                	m_base.ParityReplace = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.ParityReplace != value;
+                    m_base.ParityReplace = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("ParityReplace");
                 }
             }
-        }        
+        }
 
         /// <summary>
         /// Gets or sets the phone number.
@@ -801,18 +801,18 @@ namespace Gurux.Terminal
                         return value;
                     }
                 }
-                lock (m_baseLock)
+                lock (baseLock)
                 {
-                    return m_PhoneNumber;
+                    return phoneNumber;
                 }
             }
             set
             {
                 bool change;
-                lock (m_baseLock)
+                lock (baseLock)
                 {
-                    change = m_PhoneNumber != value;
-                    m_PhoneNumber = value;
+                    change = phoneNumber != value;
+                    phoneNumber = value;
                 }
                 if (change)
                 {
@@ -836,18 +836,18 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-                lock (m_baseLock)
+                lock (baseLock)
                 {
-                    return m_ConnectionWaitTime;
+                    return connectionWaitTime;
                 }
             }
             set
             {
                 bool change;
-                lock (m_baseLock)
+                lock (baseLock)
                 {
-                    change = m_ConnectionWaitTime != value;
-                    m_ConnectionWaitTime = value;
+                    change = connectionWaitTime != value;
+                    connectionWaitTime = value;
                 }
                 if (change)
                 {
@@ -871,25 +871,25 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-                lock (m_baseLock)
+                lock (baseLock)
                 {
-                    return m_CommandWaitTime;
+                    return commandWaitTime;
                 }
             }
             set
             {
                 bool change;
-                lock (m_baseLock)
+                lock (baseLock)
                 {
-                    change = m_CommandWaitTime != value;
-                    m_CommandWaitTime = value;
+                    change = commandWaitTime != value;
+                    commandWaitTime = value;
                 }
                 if (change)
                 {
                     NotifyPropertyChanged("CommandWaitTime");
                 }
             }
-        }  
+        }
 
 
         /// <summary>
@@ -909,25 +909,25 @@ namespace Gurux.Terminal
                         return bool.Parse(value);
                     }
                 }
-                lock (m_baseLock)
+                lock (baseLock)
                 {
-                    return m_Server;
+                    return server;
                 }
             }
             set
             {
-                bool change = m_Server != value;                
+                bool change = server != value;
                 if (change)
                 {
-                    m_Server = value;
+                    server = value;
                     NotifyPropertyChanged("Server");
                 }
             }
         }
-       
-		/// <summary>
-		/// Gets or sets the port for communications, including but not limited to all available COM ports.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets the port for communications, including but not limited to all available COM ports.
+        /// </summary>
         [MonitoringDescription("PortName")]
         [Browsable(true)]
         [DefaultValue("COM1")]
@@ -943,29 +943,29 @@ namespace Gurux.Terminal
                         return value;
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.PortName;
-				}
+                lock (baseLock)
+                {
+                    return m_base.PortName;
+                }
             }
             set
-            {               
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.PortName != value;
-                	m_base.PortName = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.PortName != value;
+                    m_base.PortName = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("PortName");
                 }
             }
         }
-        
-		/// <summary>
-		/// Gets or sets the size of the System.IO.Ports.SerialPort input buffer.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets the size of the System.IO.Ports.SerialPort input buffer.
+        /// </summary>
         [DefaultValue(4096)]
         [MonitoringDescription("ReadBufferSize")]
         [Browsable(true)]
@@ -981,29 +981,29 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.ReadBufferSize;
-				}
+                lock (baseLock)
+                {
+                    return m_base.ReadBufferSize;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.ReadBufferSize != value;
-                	m_base.ReadBufferSize = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.ReadBufferSize != value;
+                    m_base.ReadBufferSize = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("ReadBufferSize");
                 }
             }
         }
-       
-		/// <summary>
-		/// Gets or sets the number of milliseconds before a time-out occurs when a read operation does not finish.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets the number of milliseconds before a time-out occurs when a read operation does not finish.
+        /// </summary>
         [MonitoringDescription("ReadTimeout")]
         [Browsable(true)]
         [DefaultValue(-1)]
@@ -1019,19 +1019,19 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.ReadTimeout;
-				}
+                lock (baseLock)
+                {
+                    return m_base.ReadTimeout;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.ReadTimeout != value;
-                	m_base.ReadTimeout = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.ReadTimeout != value;
+                    m_base.ReadTimeout = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("ReadTimeout");
@@ -1039,9 +1039,9 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// Gets or sets the number of bytes in the internal input buffer before a System.IO.Ports.SerialPort.DataReceived event occurs.
-		/// </summary>
+        /// <summary>
+        /// Gets or sets the number of bytes in the internal input buffer before a System.IO.Ports.SerialPort.DataReceived event occurs.
+        /// </summary>
         [MonitoringDescription("ReceivedBytesThreshold")]
         [DefaultValue(1)]
         [Browsable(true)]
@@ -1057,19 +1057,19 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.ReceivedBytesThreshold;
-				}
+                lock (baseLock)
+                {
+                    return m_base.ReceivedBytesThreshold;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.ReceivedBytesThreshold != value;
-                	m_base.ReceivedBytesThreshold = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.ReceivedBytesThreshold != value;
+                    m_base.ReceivedBytesThreshold = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("ReceivedBytesThreshold");
@@ -1077,9 +1077,9 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// Gets or sets a value indicating whether the Request to Send (RTS) signal is enabled during Terminal communication.
-		/// </summary>
+        /// <summary>
+        /// Gets or sets a value indicating whether the Request to Send (RTS) signal is enabled during Terminal communication.
+        /// </summary>
         [MonitoringDescription("RtsEnable")]
         [DefaultValue(false)]
         [Browsable(true)]
@@ -1095,29 +1095,29 @@ namespace Gurux.Terminal
                         return bool.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.RtsEnable;
-				}
+                lock (baseLock)
+                {
+                    return m_base.RtsEnable;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.RtsEnable != value;
-                	m_base.RtsEnable = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.RtsEnable != value;
+                    m_base.RtsEnable = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("RtsEnable");
                 }
             }
         }
-       
-		/// <summary>
-		/// Gets or sets the standard number of stopbits per byte.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets the standard number of stopbits per byte.
+        /// </summary>
         [MonitoringDescription("StopBits")]
         [Browsable(true)]
         public StopBits StopBits
@@ -1132,29 +1132,29 @@ namespace Gurux.Terminal
                         return (StopBits)int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.StopBits;
-				}
+                lock (baseLock)
+                {
+                    return m_base.StopBits;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.StopBits != value;
-                	m_base.StopBits = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.StopBits != value;
+                    m_base.StopBits = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("StopBits");
                 }
             }
         }
-        
-		/// <summary>
-		/// Gets or sets the size of the Terminal port output buffer.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets the size of the Terminal port output buffer.
+        /// </summary>
         [Browsable(true)]
         [DefaultValue(2048)]
         [MonitoringDescription("WriteBufferSize")]
@@ -1170,33 +1170,33 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.WriteBufferSize;
-				}
+                lock (baseLock)
+                {
+                    return m_base.WriteBufferSize;
+                }
             }
             set
             {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.WriteBufferSize != value;
-                	m_base.WriteBufferSize = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.WriteBufferSize != value;
+                    m_base.WriteBufferSize = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("WriteBufferSize");
                 }
             }
         }
-        
-		/// <summary>
-		/// Gets or sets the number of milliseconds before a time-out occurs when a write operation does not finish.
-		/// </summary>
+
+        /// <summary>
+        /// Gets or sets the number of milliseconds before a time-out occurs when a write operation does not finish.
+        /// </summary>
         [MonitoringDescription("WriteTimeout")]
         [Browsable(true)]
         [DefaultValue(-1)]
-        public int WriteTimeout         
+        public int WriteTimeout
         {
             get
             {
@@ -1208,19 +1208,19 @@ namespace Gurux.Terminal
                         return int.Parse(value);
                     }
                 }
-				lock(m_baseLock)
-				{
-                	return m_base.WriteTimeout;
-				}
+                lock (baseLock)
+                {
+                    return m_base.WriteTimeout;
+                }
             }
             set
-            {                
+            {
                 bool change;
-				lock(m_baseLock)
-				{
-					change = m_base.WriteTimeout != value;
-                	m_base.WriteTimeout = value;
-				}
+                lock (baseLock)
+                {
+                    change = m_base.WriteTimeout != value;
+                    m_base.WriteTimeout = value;
+                }
                 if (change)
                 {
                     NotifyPropertyChanged("WriteTimeout");
@@ -1228,15 +1228,15 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// Closes the port connection, sets the System.IO.Ports.SerialPort.IsOpen property to false, and disposes of the internal System.IO.Stream object.
-		/// </summary>
+        /// <summary>
+        /// Closes the port connection, sets the System.IO.Ports.SerialPort.IsOpen property to false, and disposes of the internal System.IO.Stream object.
+        /// </summary>
         public void Close()
         {
             bool bOpen = VirtualOpen;
             if (!IsVirtual)
             {
-                lock (m_baseLock)
+                lock (baseLock)
                 {
                     bOpen = m_base.IsOpen;
                 }
@@ -1259,45 +1259,45 @@ namespace Gurux.Terminal
                         if (!IsVirtual)
                         {
                             //
-                            if (Progress != Progress.None)
+                            if (progress != Progress.None)
                             {
                                 try
                                 {
                                     //Send AT
                                     lock (Synchronous)
                                     {
-                                        if (Progress == Progress.Connected)
+                                        if (progress == Progress.Connected)
                                         {
                                             //We are not expecting reply.
                                             Thread.Sleep(1000);
                                             Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
                                             {
-                                                WaitTime = m_ConnectionWaitTime,
+                                                WaitTime = connectionWaitTime,
                                                 Count = 3
                                             };
                                             SendBytes(ASCIIEncoding.ASCII.GetBytes("+++"));
                                             //It's OK if this fails.
                                             Receive(p);
-                                            SendCommand("ATH0\r", m_ConnectionWaitTime, null, false);
+                                            SendCommand("ATH0\r", connectionWaitTime, null, false);
                                         }
                                     }
                                 }
                                 finally
                                 {
-                                    Progress = Progress.None;
+                                    progress = Progress.None;
                                 }
                             }
-                            if (m_Receiver != null)
+                            if (receiver != null)
                             {
-                                m_Receiver.Closing.Set();
+                                receiver.Closing.Set();
                             }
-                            lock (m_baseLock)
+                            lock (baseLock)
                             {
                                 m_base.Close();
                             }
-                            if (m_ReceiverThread != null && m_ReceiverThread.IsAlive)
+                            if (receiverThread != null && receiverThread.IsAlive)
                             {
-                                m_ReceiverThread.Join();
+                                receiverThread.Join();
                             }
                         }
                     }
@@ -1311,50 +1311,50 @@ namespace Gurux.Terminal
             }
         }
 
-		/// <summary>
-		/// Discards data from the Terminal driver's receive buffer.
-		/// </summary>
+        /// <summary>
+        /// Discards data from the Terminal driver's receive buffer.
+        /// </summary>
         public void DiscardInBuffer()
         {
-			lock(m_baseLock)
-			{
-            	m_base.DiscardInBuffer();
-			}
-        }
-        
-		/// <summary>
-		/// Discards data from the Terminal driver's transmit buffer.
-		/// </summary>
-		public void DiscardOutBuffer()
-        {
-			lock(m_baseLock)
-			{
-            	m_base.DiscardOutBuffer();
-			}
+            lock (baseLock)
+            {
+                m_base.DiscardInBuffer();
+            }
         }
 
-		/// <summary>
-		/// Gets an array of Terminal port names for the current computer.
-		/// </summary>
-		/// <returns></returns>
+        /// <summary>
+        /// Discards data from the Terminal driver's transmit buffer.
+        /// </summary>
+        public void DiscardOutBuffer()
+        {
+            lock (baseLock)
+            {
+                m_base.DiscardOutBuffer();
+            }
+        }
+
+        /// <summary>
+        /// Gets an array of Terminal port names for the current computer.
+        /// </summary>
+        /// <returns></returns>
         public static string[] GetPortNames()
         {
-           	return System.IO.Ports.SerialPort.GetPortNames();
+            return System.IO.Ports.SerialPort.GetPortNames();
         }
 
-		/// <summary>
-		/// User defined available ports.
-		/// </summary>
-		/// <remarks>If this is not set ports are retrieved from current system.</remarks>
-		public string[] AvailablePorts
-		{
-			get;
-			set;
-		}
+        /// <summary>
+        /// User defined available ports.
+        /// </summary>
+        /// <remarks>If this is not set ports are retrieved from current system.</remarks>
+        public string[] AvailablePorts
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Opens a new Terminal port connection.
-		/// </summary>
+        /// <summary>
+        /// Opens a new Terminal port connection.
+        /// </summary>
         /// <remarks>
         /// If connection is succeeded but Modem data is not move try to set following:
         /// DTE/Modem flow control
@@ -1371,7 +1371,7 @@ namespace Gurux.Terminal
                     m_syncBase.lastPosition = 0;
                 }
                 NotifyMediaStateChange(MediaState.Opening);
-                if (m_Trace >= TraceLevel.Info && m_OnTrace != null)
+                if (trace >= TraceLevel.Info && m_OnTrace != null)
                 {
                     string eop = Resources.None;
                     if (m_Eop is byte[])
@@ -1382,7 +1382,7 @@ namespace Gurux.Terminal
                     {
                         eop = m_Eop.ToString();
                     }
-                    string str = string.Format("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11} {12} ", 
+                    string str = string.Format("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11} {12} ",
                         Resources.Settings,
                         Resources.Port,
                         m_base.PortName,
@@ -1398,21 +1398,21 @@ namespace Gurux.Terminal
                         eop);
                     m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, str, null));
                 }
-				lock(m_baseLock)
-				{
-                	m_base.Open();
-				}
+                lock (baseLock)
+                {
+                    m_base.Open();
+                }
                 //Events are not currently implemented in Mono's Terminal port.
                 if (!IsVirtual && Environment.OSVersion.Platform == PlatformID.Unix)
                 {
-                    m_Receiver = new ReceiveThread(this);
-                    m_ReceiverThread = new Thread(new ThreadStart(m_Receiver.Receive));
-                    m_ReceiverThread.IsBackground = true;
-                    m_ReceiverThread.Start();                    
-                }                
+                    receiver = new ReceiveThread(this);
+                    receiverThread = new Thread(new ThreadStart(receiver.Receive));
+                    receiverThread.IsBackground = true;
+                    receiverThread.Start();
+                }
                 try
                 {
-                    this.DtrEnable = this.RtsEnable = true; 
+                    this.DtrEnable = this.RtsEnable = true;
                     //Send AT
                     lock (Synchronous)
                     {
@@ -1420,41 +1420,41 @@ namespace Gurux.Terminal
                         {
                             foreach (string it in InitializeCommands)
                             {
-                                SendCommand(it + "\r\n", m_CommandWaitTime, null, true);
+                                SendCommand(it + "\r\n", commandWaitTime, null, true);
                             }
                         }
                         string reply;
                         if (this.Server)
                         {
-                            if (string.Compare(SendCommand("AT\r\n", m_CommandWaitTime, null, false), "OK", true) != 0)
-                            {                                
-                                reply = SendCommand("AT\r\n", m_CommandWaitTime, null, true);
+                            if (string.Compare(SendCommand("AT\r\n", commandWaitTime, null, false), "OK", true) != 0)
+                            {
+                                reply = SendCommand("AT\r\n", commandWaitTime, null, true);
                                 if (string.Compare(reply, "AT\r\r\n", true) != 0)
                                 {
                                     throw new Exception(Resources.InvalidReply);
                                 }
                             }
-                            reply = SendCommand("ATA\r\n", m_CommandWaitTime, null, true);
+                            reply = SendCommand("ATA\r\n", commandWaitTime, null, true);
                             if (string.Compare(reply, "ATA", true) != 0)
                             {
                                 throw new Exception(Resources.InvalidReply);
                             }
-                            Progress = Progress.Connecting;
+                            progress = Progress.Connecting;
                         }
                         else
                         {
                             //Send AT
-                            if (string.Compare(SendCommand("AT\r", m_CommandWaitTime, null, false), "OK", true) != 0)
-                            {                                
-                                reply = SendCommand("AT\r", m_CommandWaitTime, null, true);
+                            if (string.Compare(SendCommand("AT\r", commandWaitTime, null, false), "OK", true) != 0)
+                            {
+                                reply = SendCommand("AT\r", commandWaitTime, null, true);
                                 if (string.Compare(reply, "OK", true) != 0)
                                 {
                                     throw new Exception(Resources.InvalidReply);
                                 }
-                            }                           
-                            Progress = Progress.Connecting;
-                            reply = SendCommand("ATD" + PhoneNumber + "\r\n", m_ConnectionWaitTime, null, true);
-                            Progress = Progress.Connected;
+                            }
+                            progress = Progress.Connecting;
+                            reply = SendCommand("ATD" + PhoneNumber + "\r\n", connectionWaitTime, null, true);
+                            progress = Progress.Connected;
                         }
                     }
                 }
@@ -1471,16 +1471,16 @@ namespace Gurux.Terminal
                 throw;
             }
         }
-        
+
         void SendBytes(byte[] value)
         {
-            lock (m_baseLock)
+            lock (baseLock)
             {
-                if (m_Trace == TraceLevel.Verbose && m_OnTrace != null)
+                if (trace == TraceLevel.Verbose && m_OnTrace != null)
                 {
                     m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value, null));
                 }
-                m_BytesSent += (uint)value.Length;
+                bytesSent += (uint)value.Length;
                 //Reset last position if Eop is used.
                 lock (m_syncBase.receivedSync)
                 {
@@ -1560,7 +1560,7 @@ namespace Gurux.Terminal
                                             str += reply.Substring(start).Trim();
                                         }
                                     }
-                                    str += Environment.NewLine + SendCommand("AT+CEER\r", wt, null, false);                                    
+                                    str += Environment.NewLine + SendCommand("AT+CEER\r", wt, null, false);
                                     throw new Exception(str);
                                 }
                                 if (reply.LastIndexOf("ERROR") != -1)
@@ -1687,7 +1687,7 @@ namespace Gurux.Terminal
                 m_OnPropertyChanged -= value;
             }
         }
-        
+
         /// <inheritdoc cref="TraceEventHandler"/>
         [Description("Called when the Media is sending or receiving data.")]
         public event TraceEventHandler OnTrace
@@ -1700,7 +1700,7 @@ namespace Gurux.Terminal
             {
                 m_OnTrace -= value;
             }
-        }        
+        }
 
         private void NotifyPropertyChanged(String info)
         {
@@ -1808,7 +1808,7 @@ namespace Gurux.Terminal
             {
                 m_OnDataSend -= value;
             }
-        }        
+        }
 
         /// <summary>
         /// Called when new data is received to the virtual media.
@@ -1819,7 +1819,7 @@ namespace Gurux.Terminal
         {
             int index = m_syncBase.receivedSize;
             m_syncBase.AppendData(data, 0, data.Length);
-            m_BytesReceived += (uint)data.Length;
+            bytesReceived += (uint)data.Length;
             HandleReceivedData(index, data, data.Length);
         }
 
@@ -1829,7 +1829,7 @@ namespace Gurux.Terminal
         {
             get
             {
-                return m_Synchronous;
+                return synchronous;
             }
         }
 
@@ -1838,10 +1838,10 @@ namespace Gurux.Terminal
         {
             get
             {
-                bool reserved = System.Threading.Monitor.TryEnter(m_Synchronous, 0);
+                bool reserved = System.Threading.Monitor.TryEnter(synchronous, 0);
                 if (reserved)
                 {
-                    System.Threading.Monitor.Exit(m_Synchronous);
+                    System.Threading.Monitor.Exit(synchronous);
                 }
                 return !reserved;
             }
@@ -1868,7 +1868,7 @@ namespace Gurux.Terminal
         {
             get
             {
-                return m_BytesSent;
+                return bytesSent;
             }
         }
 
@@ -1882,7 +1882,7 @@ namespace Gurux.Terminal
         {
             get
             {
-                return m_BytesReceived;
+                return bytesReceived;
             }
         }
 
@@ -1893,8 +1893,8 @@ namespace Gurux.Terminal
         /// <seealso cref="BytesReceived">BytesReceived</seealso>
         public void ResetByteCounters()
         {
-            m_BytesSent = m_BytesReceived = 0;
-        }   
+            bytesSent = bytesReceived = 0;
+        }
 
         void Gurux.Common.IGXMedia.Copy(object target)
         {
@@ -1921,7 +1921,7 @@ namespace Gurux.Terminal
                 return m_Eop;
             }
             set
-            {                 
+            {
                 bool change = m_Eop != value;
                 m_Eop = value;
                 if (change)
@@ -1948,9 +1948,9 @@ namespace Gurux.Terminal
             get
             {
                 string tmp = "";
-                if (!string.IsNullOrEmpty(m_PhoneNumber))
+                if (!string.IsNullOrEmpty(phoneNumber))
                 {
-                    tmp += "<Number>" + m_PhoneNumber + "</Number>";
+                    tmp += "<Number>" + phoneNumber + "</Number>";
                 }
                 if (Server)
                 {
@@ -1999,13 +1999,13 @@ namespace Gurux.Terminal
                                 switch (xmlReader.Name)
                                 {
                                     case "Init":
-                                        InitializeCommands = xmlReader.ReadString().Split(new char[]{';'});
+                                        InitializeCommands = xmlReader.ReadString().Split(new char[] { ';' });
                                         break;
                                     case "Number":
-                                        m_PhoneNumber = xmlReader.ReadString();
+                                        phoneNumber = xmlReader.ReadString();
                                         break;
                                     case "Server":
-                                        m_Server = Convert.ToInt32(xmlReader.ReadString()) != 0;
+                                        server = Convert.ToInt32(xmlReader.ReadString()) != 0;
                                         break;
                                     case "Port":
                                         m_base.PortName = xmlReader.ReadString();
@@ -2045,7 +2045,28 @@ namespace Gurux.Terminal
                     }
                 }
             }
-        }       
+        }
+
+        /// <summary>
+        /// Current terminal settings as a string.
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append(PortName);
+            sb.Append(' ');
+            sb.Append(BaudRate);
+            sb.Append(' ');
+            sb.Append(DataBits);
+            sb.Append(Parity);
+            sb.Append((int)StopBits);
+            sb.Append(" Number:");
+            sb.Append(phoneNumber);
+            sb.Append(" Server:");
+            sb.Append(server);
+            return sb.ToString();
+        }
 
         string Gurux.Common.IGXMedia.MediaType
         {
@@ -2065,7 +2086,7 @@ namespace Gurux.Terminal
 
         string Gurux.Common.IGXMedia.Name
         {
-            get 
+            get
             {
                 return m_base.PortName;
             }
@@ -2081,22 +2102,22 @@ namespace Gurux.Terminal
         /// <seealso cref="DataBits">DataBits</seealso>
         /// <seealso href="PropertiesDialog.html">Properties Dialog</seealso>
         public bool Properties(Form parent)
-        {            
+        {
             return new Gurux.Shared.PropertiesForm(this.PropertiesForm, Gurux.Terminal.Properties.Resources.SettingsTxt, IsOpen).ShowDialog(parent) == DialogResult.OK;
         }
 
-		/// <summary>
-		/// Sends data asynchronously. <br/>
-		/// No reply from the receiver, whether or not the operation was successful, is expected.
-		/// </summary>
+        /// <summary>
+        /// Sends data asynchronously. <br/>
+        /// No reply from the receiver, whether or not the operation was successful, is expected.
+        /// </summary>
         public void Send(object data)
         {
             ((Gurux.Common.IGXMedia)this).Send(data, null);
         }
 
-		/// <summary>
-		/// Returns a new instance of the Settings form.
-		/// </summary>
+        /// <summary>
+        /// Returns a new instance of the Settings form.
+        /// </summary>
         public System.Windows.Forms.Form PropertiesForm
         {
             get
@@ -2112,15 +2133,15 @@ namespace Gurux.Terminal
         }
 
         void Gurux.Common.IGXMedia.Send(object data, string receiver)
-        {			
-            byte[] value = GXCommon.GetAsByteArray(data);			
-			lock(m_baseLock)
-			{
-                if (m_Trace == TraceLevel.Verbose && m_OnTrace != null)
+        {
+            byte[] value = GXCommon.GetAsByteArray(data);
+            lock (baseLock)
+            {
+                if (trace == TraceLevel.Verbose && m_OnTrace != null)
                 {
                     m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value, receiver));
                 }
-            	m_BytesSent += (uint) value.Length;
+                bytesSent += (uint)value.Length;
                 //Reset last position if Eop is used.
                 lock (m_syncBase.receivedSync)
                 {
@@ -2134,13 +2155,13 @@ namespace Gurux.Terminal
                 {
                     m_OnDataSend(this, new ReceiveEventArgs(data, receiver));
                 }
-			}
+            }
         }
 
         /// <inheritdoc cref="IGXMedia.Validate"/>
         public void Validate()
         {
-            
+
         }
 
         int Gurux.Common.IGXMedia.ConfigurableSettings
@@ -2153,15 +2174,15 @@ namespace Gurux.Terminal
 
         #region IDisposable Members
 
-		/// <summary>
-		/// Closes the connection.
-		/// </summary>
+        /// <summary>
+        /// Closes the connection.
+        /// </summary>
         public void Dispose()
         {
             if (this.IsOpen)
             {
                 Close();
-            }            
+            }
         }
 
         #endregion        
