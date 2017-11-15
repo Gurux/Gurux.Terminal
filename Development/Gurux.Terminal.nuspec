@@ -23,8 +23,8 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="bin\Release\Gurux.Terminal.dll" target="lib\portable-win+net35" />
-    <file src="bin\Release\Gurux.Terminal.XML" target="lib\portable-win+net35" />
-    <file src="bin\Release\Gurux.Terminal.pdb" target="lib\portable-win+net35" />
+    <file src="bin\Release\Gurux.Terminal.dll" target="lib\portable-win+net40" />
+    <file src="bin\Release\Gurux.Terminal.XML" target="lib\portable-win+net40" />
+    <file src="bin\Release\Gurux.Terminal.pdb" target="lib\portable-win+net40" />
   </files>
 </package>
