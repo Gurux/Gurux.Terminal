@@ -1243,6 +1243,7 @@ namespace Gurux.Terminal
             }
             if (bOpen)
             {
+                m_syncBase.Close();
                 try
                 {
                     NotifyMediaStateChange(MediaState.Closing);
@@ -1366,10 +1367,7 @@ namespace Gurux.Terminal
             Close();
             try
             {
-                lock (m_syncBase.receivedSync)
-                {
-                    m_syncBase.lastPosition = 0;
-                }
+                m_syncBase.Open();
                 NotifyMediaStateChange(MediaState.Opening);
                 if (trace >= TraceLevel.Info && m_OnTrace != null)
                 {
@@ -2129,6 +2127,10 @@ namespace Gurux.Terminal
         /// <inheritdoc cref="IGXMedia.Receive"/>        
         public bool Receive<T>(Gurux.Common.ReceiveParameters<T> args)
         {
+            if (!IsOpen)
+            {
+                throw new InvalidOperationException("Media is closed.");
+            }
             return m_syncBase.Receive(args);
         }
 
