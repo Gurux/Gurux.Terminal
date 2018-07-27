@@ -292,7 +292,7 @@ namespace Gurux.Terminal
                     {
                         foreach (object eop in (Array)Eop)
                         {
-                            totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(eop), index, m_syncBase.receivedSize);
+                            totalCount = Gurux.Common.GXCommon.IndexOf(m_syncBase.m_Received, Gurux.Common.GXCommon.GetAsByteArray(eop), index, m_syncBase.receivedSize);
                             if (totalCount != -1)
                             {
                                 break;
@@ -301,7 +301,7 @@ namespace Gurux.Terminal
                     }
                     else
                     {
-                        totalCount = GXCommon.IndexOf(m_syncBase.m_Received, GXCommon.GetAsByteArray(Eop), index, m_syncBase.receivedSize);
+                        totalCount = Gurux.Common.GXCommon.IndexOf(m_syncBase.m_Received, Gurux.Common.GXCommon.GetAsByteArray(Eop), index, m_syncBase.receivedSize);
                     }
                 }
             }
@@ -2136,7 +2136,7 @@ namespace Gurux.Terminal
 
         void Gurux.Common.IGXMedia.Send(object data, string receiver)
         {
-            byte[] value = GXCommon.GetAsByteArray(data);
+            byte[] value = Gurux.Common.GXCommon.GetAsByteArray(data);
             lock (baseLock)
             {
                 if (trace == TraceLevel.Verbose && m_OnTrace != null)

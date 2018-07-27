@@ -57,7 +57,7 @@ namespace Gurux.Terminal
             // 
             // panel1
             // 
-            this.panel1.BackgroundImage = Resources.terminal;
+            this.panel1.BackgroundImage = Resources.terminal.ToBitmap();
             this.panel1.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.panel1.Location = new System.Drawing.Point(12, 12);
             this.panel1.Name = "panel1";
