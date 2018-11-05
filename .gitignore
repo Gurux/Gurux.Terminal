@@ -15,6 +15,7 @@ local.properties
 .classpath
 .settings/
 .loadpath
+GXTerminal csharp Sample/.vs/
 
 # External tool builders
 .externalToolBuilders/
@@ -168,3 +169,4 @@ pip-log.txt
 .DS_Store
 *.lock
 *.ide
+Development/.vs/Gurux.Terminal/DesignTimeBuild/.dtbcache
