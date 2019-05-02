@@ -1,7 +1,7 @@
 //
 // --------------------------------------------------------------------------
 //  Gurux Ltd
-// 
+//
 //
 //
 // Filename:        $HeadURL$
@@ -19,14 +19,14 @@
 // This file is a part of Gurux Device Framework.
 //
 // Gurux Device Framework is Open Source software; you can redistribute it
-// and/or modify it under the terms of the GNU General Public License 
+// and/or modify it under the terms of the GNU General Public License
 // as published by the Free Software Foundation; version 2 of the License.
 // Gurux Device Framework is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of 
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 // See the GNU General Public License for more details.
 //
-// This code is licensed under the GNU General Public License v2. 
+// This code is licensed under the GNU General Public License v2.
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
 //---------------------------------------------------------------------------
 
@@ -59,9 +59,10 @@ namespace Gurux.Terminal
     /// A media component that enables communication of Terminal port.
     /// See help in http://www.gurux.org/index.php?q=Gurux.Terminal
     /// </summary>
-    public class GXTerminal : IGXMedia, IGXVirtualMedia, INotifyPropertyChanged, IDisposable
+    public class GXTerminal : IGXMedia2, IGXVirtualMedia, INotifyPropertyChanged, IDisposable
     {
         bool IsVirtual, VirtualOpen;
+        int hangsUpDelay = 0;
         int connectionWaitTime = 30000;
         int commandWaitTime = 3000;
         private object m_sync = new object();
@@ -70,9 +71,9 @@ namespace Gurux.Terminal
         bool server;
         string phoneNumber;
         TraceLevel trace;
-        static Dictionary<string, List<int>> BaudRates = new Dictionary<string, List<int>>();
+        readonly static Dictionary<string, List<int>> BaudRates = new Dictionary<string, List<int>>();
         object m_Eop;
-        GXSynchronousMediaBase m_syncBase;
+        readonly GXSynchronousMediaBase m_syncBase;
         UInt64 bytesSent, bytesReceived;
         readonly object synchronous = new object();
         readonly object baseLock = new object();
@@ -203,7 +204,7 @@ namespace Gurux.Terminal
                 items.Add(9600);
                 items.Add(19200);
                 items.Add(38400);
-                items.Add(0); //Programmable baud rate.	
+                items.Add(0); //Programmable baud rate.
             }
             return items.ToArray();
         }
@@ -336,6 +337,7 @@ namespace Gurux.Terminal
                 int index = m_syncBase.receivedSize;
                 byte[] buff = null;
                 int totalCount = 0;
+                Thread.Sleep((int)ReceiveDelay);
                 while (IsOpen && (count = m_base.BytesToRead) != 0)
                 {
                     totalCount += count;
@@ -1229,6 +1231,41 @@ namespace Gurux.Terminal
         }
 
         /// <summary>
+        /// Get or set how long (ms) is waited before hang up is called.
+        /// </summary>
+        public int HangsUpDelay
+        {
+            get
+            {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("HangsUpDelay");
+                    if (value != null)
+                    {
+                        return int.Parse(value);
+                    }
+                }
+                lock (baseLock)
+                {
+                    return hangsUpDelay;
+                }
+            }
+            set
+            {
+                bool change;
+                lock (baseLock)
+                {
+                    change = hangsUpDelay != value;
+                    hangsUpDelay = value;
+                }
+                if (change)
+                {
+                    NotifyPropertyChanged("HangsUpDelay");
+                }
+            }
+        }
+
+        /// <summary>
         /// Closes the port connection, sets the System.IO.Ports.SerialPort.IsOpen property to false, and disposes of the internal System.IO.Stream object.
         /// </summary>
         public void Close()
@@ -1279,6 +1316,7 @@ namespace Gurux.Terminal
                                             SendBytes(ASCIIEncoding.ASCII.GetBytes("+++"));
                                             //It's OK if this fails.
                                             Receive(p);
+                                            Thread.Sleep(HangsUpDelay);
                                             SendCommand("ATH0\r", connectionWaitTime, null, false);
                                         }
                                     }
@@ -1516,7 +1554,7 @@ namespace Gurux.Terminal
                 }
                 sb.Append(p.Reply);
                 reply = sb.ToString();
-                //Remove echo.                
+                //Remove echo.
                 if (sb.Length >= cmd.Length && reply.StartsWith(cmd))
                 {
                     sb.Remove(0, cmd.Length);
@@ -1607,8 +1645,8 @@ namespace Gurux.Terminal
         }
 
         /// <summary>
-        /// Errors that occur after the connection is established, are sent through this method. 
-        /// </summary>       
+        /// Errors that occur after the connection is established, are sent through this method.
+        /// </summary>
         [Description("Errors that occur after the connection is established, are sent through this method.")]
         public event Gurux.Common.ErrorEventHandler OnError
         {
@@ -1625,7 +1663,7 @@ namespace Gurux.Terminal
 
         /// <summary>
         /// Media component sends notification, when its state changes.
-        /// </summary>       
+        /// </summary>
         [Description("Media component sends notification, when its state changes.")]
         public event MediaStateChangeEventHandler OnMediaStateChange
         {
@@ -2124,7 +2162,7 @@ namespace Gurux.Terminal
             }
         }
 
-        /// <inheritdoc cref="IGXMedia.Receive"/>        
+        /// <inheritdoc cref="IGXMedia.Receive"/>
         public bool Receive<T>(Gurux.Common.ReceiveParameters<T> args)
         {
             if (!IsOpen)
@@ -2172,6 +2210,26 @@ namespace Gurux.Terminal
             set;
         }
 
+        uint IGXMedia2.AsyncWaitTime
+        {
+            get;
+            set;
+        }
+
+        EventWaitHandle IGXMedia2.AsyncWaitHandle
+        {
+            get
+            {
+                return null;
+            }
+        }
+
+        public uint ReceiveDelay
+        {
+            get;
+            set;
+        }
+
         #endregion
 
         #region IDisposable Members
@@ -2187,6 +2245,6 @@ namespace Gurux.Terminal
             }
         }
 
-        #endregion        
+        #endregion
     }
 }

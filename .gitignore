@@ -15,6 +15,7 @@ local.properties
 .classpath
 .settings/
 .loadpath
+development/.vs/
 GXTerminal csharp Sample/.vs/
 
 # External tool builders
