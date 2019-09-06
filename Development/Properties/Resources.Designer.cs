@@ -19,7 +19,7 @@ namespace Gurux.Terminal.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -79,6 +79,15 @@ namespace Gurux.Terminal.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Command wait time:.
+        /// </summary>
+        internal static string CommandWaitTimeTxt {
+            get {
+                return ResourceManager.GetString("CommandWaitTimeTxt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Connecting....
         /// </summary>
         internal static string Connecting {
@@ -115,6 +124,15 @@ namespace Gurux.Terminal.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Connection wait time:.
+        /// </summary>
+        internal static string ConnectionWaitTimeTxt {
+            get {
+                return ResourceManager.GetString("ConnectionWaitTimeTxt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Data Bits:.
         /// </summary>
         internal static string DataBits {
@@ -147,6 +165,15 @@ namespace Gurux.Terminal.Properties {
         internal static string FailedToReceiveAnswerFromTheModemCheckSerialPort {
             get {
                 return ResourceManager.GetString("FailedToReceiveAnswerFromTheModemCheckSerialPort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hangs up delay:.
+        /// </summary>
+        internal static string HangsUpDelayTxt {
+            get {
+                return ResourceManager.GetString("HangsUpDelayTxt", resourceCulture);
             }
         }
         

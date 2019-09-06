@@ -122,21 +122,30 @@ namespace Gurux.Terminal
             Target.DataBits = Convert.ToInt32(this.DataBitsCB.Text);
             Target.Parity = (System.IO.Ports.Parity)this.ParityCB.SelectedItem;
             Target.StopBits = (System.IO.Ports.StopBits)this.StopBitsCB.SelectedItem;
+            Target.ConnectionWaitTime = Convert.ToInt32(this.ConnectionWaitTimeTb.Text);
+            Target.CommandWaitTime = Convert.ToInt32(this.CommandWaitTimeTb.Text);
+            Target.HangsUpDelay = Convert.ToInt32(this.HangsUpDelayTb.Text);
             Dirty = false;
         }
 
         void IGXPropertyPage.Initialize()
         {
             //Update texts.
-            this.Text = Gurux.Terminal.Properties.Resources.SettingsTxt;
-            this.NumberLbl.Text = Gurux.Terminal.Properties.Resources.PhoneNumberTxt;
-            this.PortNameLbl.Text = Gurux.Terminal.Properties.Resources.PortNameTxt;
-            this.BaudRateLbl.Text = Gurux.Terminal.Properties.Resources.BaudRateTxt;
-            this.DataBitsLbl.Text = Gurux.Terminal.Properties.Resources.DataBitsTxt;
-            this.ParityLbl.Text = Gurux.Terminal.Properties.Resources.ParityTxt;
-            this.StopBitsLbl.Text = Gurux.Terminal.Properties.Resources.StopBitsTxt;
-            this.NumberTB.Text = Target.PhoneNumber;
-            this.ServerCB.Checked = Target.Server;
+            Text = Gurux.Terminal.Properties.Resources.SettingsTxt;
+            NumberLbl.Text = Gurux.Terminal.Properties.Resources.PhoneNumberTxt;
+            PortNameLbl.Text = Gurux.Terminal.Properties.Resources.PortNameTxt;
+            BaudRateLbl.Text = Gurux.Terminal.Properties.Resources.BaudRateTxt;
+            DataBitsLbl.Text = Gurux.Terminal.Properties.Resources.DataBitsTxt;
+            ParityLbl.Text = Gurux.Terminal.Properties.Resources.ParityTxt;
+            StopBitsLbl.Text = Gurux.Terminal.Properties.Resources.StopBitsTxt;
+            ConnectionWaitTimeLbl.Text = Gurux.Terminal.Properties.Resources.ConnectionWaitTimeTxt;
+            CommandWaitTimeLbl.Text = Gurux.Terminal.Properties.Resources.CommandWaitTimeTxt;
+            HangsUpDelayLbl.Text = Gurux.Terminal.Properties.Resources.HangsUpDelayTxt;
+            NumberTB.Text = Target.PhoneNumber;
+            ServerCB.Checked = Target.Server;
+            ConnectionWaitTimeTb.Text = Target.ConnectionWaitTime.ToString();
+            CommandWaitTimeTb.Text = Target.CommandWaitTime.ToString();
+            HangsUpDelayTb.Text = Target.HangsUpDelay.ToString();
 
             NumberPanel.Enabled = (Target.ConfigurableSettings & AvailableMediaSettings.PhoneNumber) != 0;
             //Server is disabled because it is not work correctly yet.
@@ -198,6 +207,10 @@ namespace Gurux.Terminal
                 this.StopBitsCB.Items.Add(System.IO.Ports.StopBits.Two);
                 this.StopBitsCB.SelectedItem = Target.StopBits;
             }
+
+            ConnectionWaitTimePanel.Enabled = (Target.ConfigurableSettings & AvailableMediaSettings.ConnectionWaitTime) != 0;
+            CommandWaitTimePanel.Enabled = (Target.ConfigurableSettings & AvailableMediaSettings.CommandWaitTime) != 0;
+            HangsUpDelayPanel.Enabled = (Target.ConfigurableSettings & AvailableMediaSettings.HangsUpDelay) != 0;
             Dirty = false;
         }
 
@@ -259,6 +272,33 @@ namespace Gurux.Terminal
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("StopBits"));
+            }
+        }
+
+        private void ConnectionWaitTimeTb_TextChanged(object sender, EventArgs e)
+        {
+            Dirty = true;
+            if (propertyChanged != null)
+            {
+                propertyChanged(this, new PropertyChangedEventArgs("ConnectionWaitTime"));
+            }
+        }
+
+        private void CommandWaitTimeTb_TextChanged(object sender, EventArgs e)
+        {
+            Dirty = true;
+            if (propertyChanged != null)
+            {
+                propertyChanged(this, new PropertyChangedEventArgs("CommandWaitTime"));
+            }
+        }
+
+        private void HangsUpDelayTb_TextChanged(object sender, EventArgs e)
+        {
+            Dirty = true;
+            if (propertyChanged != null)
+            {
+                propertyChanged(this, new PropertyChangedEventArgs("HangsUpDelay"));
             }
         }
     }

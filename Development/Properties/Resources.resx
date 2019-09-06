@@ -123,6 +123,9 @@
   <data name="BaudRateTxt" xml:space="preserve">
     <value>Baud Rate</value>
   </data>
+  <data name="CommandWaitTimeTxt" xml:space="preserve">
+    <value>Command wait time:</value>
+  </data>
   <data name="Connecting" xml:space="preserve">
     <value>Connecting...</value>
   </data>
@@ -135,6 +138,9 @@
   <data name="ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
     <value>Connection failed: no carrier (when telephone call was being established). </value>
   </data>
+  <data name="ConnectionWaitTimeTxt" xml:space="preserve">
+    <value>Connection wait time:</value>
+  </data>
   <data name="DataBits" xml:space="preserve">
     <value>Data Bits:</value>
   </data>
@@ -146,6 +152,9 @@
   </data>
   <data name="FailedToReceiveAnswerFromTheModemCheckSerialPort" xml:space="preserve">
     <value>Failed to receive answer from the modem. Check serial port.</value>
+  </data>
+  <data name="HangsUpDelayTxt" xml:space="preserve">
+    <value>Hangs up delay:</value>
   </data>
   <data name="InvalidReply" xml:space="preserve">
     <value>Invalid reply.</value>
