@@ -2016,6 +2016,18 @@ namespace Gurux.Terminal
                 {
                     tmp += "<Init>" + string.Join(";", InitializeCommands) + "</Init>";
                 }
+                if (this.ConnectionWaitTime != 30000)
+                {
+                    tmp += "<ConnectionWaitTime>" + ConnectionWaitTime + "</ConnectionWaitTime>";
+                }
+                if (this.CommandWaitTime != 3000)
+                {
+                    tmp += "<CommandWaitTime>" + CommandWaitTime + "</CommandWaitTime>";
+                }
+                if (this.HangsUpDelay != 0)
+                {
+                    tmp += "<HangsUpDelay>" + HangsUpDelay + "</HangsUpDelay>";
+                }
                 return tmp;
             }
             set
@@ -2026,6 +2038,10 @@ namespace Gurux.Terminal
                     settings.ConformanceLevel = ConformanceLevel.Fragment;
                     string str;
                     int result;
+
+                    ConnectionWaitTime = 30000;
+                    CommandWaitTime = 3000;
+                    HangsUpDelay = 0;
                     using (XmlReader xmlReader = XmlReader.Create(new System.IO.StringReader(value), settings))
                     {
                         while (xmlReader.Read())
@@ -2074,6 +2090,15 @@ namespace Gurux.Terminal
                                         break;
                                     case "ByteSize":
                                         m_base.DataBits = Convert.ToInt32(xmlReader.ReadString());
+                                        break;
+                                    case "ConnectionWaitTime":
+                                        ConnectionWaitTime = Convert.ToInt32(xmlReader.ReadString());
+                                        break;
+                                    case "CommandWaitTime":
+                                        CommandWaitTime = Convert.ToInt32(xmlReader.ReadString());
+                                        break;
+                                    case "HangsUpDelay":
+                                        HangsUpDelay = Convert.ToInt32(xmlReader.ReadString());
                                         break;
                                 }
                             }
