@@ -2156,6 +2156,15 @@ namespace Gurux.Terminal
         }
 
         /// <summary>
+        /// Sends data asynchronously. <br/>
+        /// No reply from the receiver, whether or not the operation was successful, is expected.
+        /// </summary>
+        public void Send(object data)
+        {
+            ((Gurux.Common.IGXMedia)this).Send(data, null);
+        }
+#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
+        /// <summary>
         /// Shows the serial port Properties dialog.
         /// </summary>
         /// <param name="parent">Owner window of the Properties dialog.</param>
@@ -2170,15 +2179,6 @@ namespace Gurux.Terminal
         }
 
         /// <summary>
-        /// Sends data asynchronously. <br/>
-        /// No reply from the receiver, whether or not the operation was successful, is expected.
-        /// </summary>
-        public void Send(object data)
-        {
-            ((Gurux.Common.IGXMedia)this).Send(data, null);
-        }
-
-        /// <summary>
         /// Returns a new instance of the Settings form.
         /// </summary>
         public System.Windows.Forms.Form PropertiesForm
@@ -2188,6 +2188,7 @@ namespace Gurux.Terminal
                 return new Settings(this);
             }
         }
+#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
 
         /// <inheritdoc cref="IGXMedia.Receive"/>
         public bool Receive<T>(Gurux.Common.ReceiveParameters<T> args)
@@ -2257,9 +2258,9 @@ namespace Gurux.Terminal
             set;
         }
 
-        #endregion
+#endregion
 
-        #region IDisposable Members
+#region IDisposable Members
 
         /// <summary>
         /// Closes the connection.
@@ -2272,6 +2273,6 @@ namespace Gurux.Terminal
             }
         }
 
-        #endregion
+#endregion
     }
 }

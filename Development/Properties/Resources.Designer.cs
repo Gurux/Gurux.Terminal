@@ -275,7 +275,7 @@ namespace Gurux.Terminal.Properties {
                 return ResourceManager.GetString("StopBitsTxt", resourceCulture);
             }
         }
-        
+#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
@@ -285,5 +285,6 @@ namespace Gurux.Terminal.Properties {
                 return ((System.Drawing.Icon)(obj));
             }
         }
+#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
     }
 }
