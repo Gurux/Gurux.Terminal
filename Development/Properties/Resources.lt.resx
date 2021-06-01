@@ -118,73 +118,69 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="BaudRate" xml:space="preserve">
-    <value>Baud Rate:</value>
-  </data>
-  <data name="Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>Sparta:</value>
   </data>
   <data name="CommandWaitTimeTxt" xml:space="preserve">
-    <value>Command wait time:</value>
+    <value>Komandos laukimo laikas:</value>
   </data>
   <data name="Connecting" xml:space="preserve">
-    <value>Connecting...</value>
+    <value>Prisijungiama ...</value>
   </data>
   <data name="ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: busy (when telephone call was being established).</value>
+    <value>Nepavyko prisijungti: užimta (kai buvo užmegztas telefono skambutis).</value>
   </data>
   <data name="ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: error (when telephone call was being established).</value>
+    <value>Nepavyko prisijungti: klaida (kai buvo kuriamas telefono skambutis).</value>
   </data>
   <data name="ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: no carrier (when telephone call was being established). </value>
+    <value>Nepavyko prisijungti: nėra operatoriaus (kai buvo skambinama telefonu).</value>
   </data>
   <data name="ConnectionWaitTimeTxt" xml:space="preserve">
-    <value>Connection wait time:</value>
+    <value>Prisijungimo laukimo laikas:</value>
   </data>
   <data name="DataBits" xml:space="preserve">
-    <value>Data Bits:</value>
+    <value>Duomenų bitai:</value>
   </data>
   <data name="Eop" xml:space="preserve">
     <value>Eop:</value>
   </data>
   <data name="FailedToReceiveAnswerFromTheModemCheckSerialPort" xml:space="preserve">
-    <value>Failed to receive answer from the modem. Check serial port.</value>
+    <value>Nepavyko gauti atsakymo iš modemo. Patikrinkite nuoseklųjį prievadą.</value>
   </data>
   <data name="HangsUpDelayTxt" xml:space="preserve">
-    <value>Hangs up delay:</value>
+    <value>Pakabinimo uždelsimas:</value>
   </data>
   <data name="InvalidReply" xml:space="preserve">
-    <value>Invalid reply.</value>
+    <value>Neteisingas atsakymas.</value>
   </data>
   <data name="None" xml:space="preserve">
-    <value>None</value>
-  </data>
-  <data name="OK" xml:space="preserve">
-    <value>OK</value>
+    <value>Nė vienas</value>
   </data>
   <data name="Parity" xml:space="preserve">
-    <value>Parity:</value>
+    <value>Paritetas:</value>
   </data>
   <data name="PhoneNumberTxt" xml:space="preserve">
-    <value>Phone Number</value>
+    <value>Telefono numeris</value>
   </data>
   <data name="Port" xml:space="preserve">
-    <value>Port:</value>
+    <value>Uostas:</value>
   </data>
   <data name="PortNameTxt" xml:space="preserve">
-    <value>Serial Port:</value>
+    <value>Nuoseklusis prievadas:</value>
   </data>
   <data name="Settings" xml:space="preserve">
-    <value>Settings:</value>
+    <value>Nustatymai:</value>
   </data>
   <data name="SettingsTxt" xml:space="preserve">
-    <value>Terminal Settings</value>
+    <value>Terminalo nustatymai</value>
   </data>
   <data name="StopBits" xml:space="preserve">
-    <value>Stop Bits:</value>
+    <value>Stop bitai:</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="terminal" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\terminal.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="Cancel" xml:space="preserve">
+    <value>Atšaukti</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>Gerai</value>
   </data>
 </root>

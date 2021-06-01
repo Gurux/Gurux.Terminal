@@ -1,5 +1,4 @@
-﻿#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
-using Gurux.Terminal.Properties;
+﻿using Gurux.Terminal.Properties;
 namespace Gurux.Terminal
 {
     partial class Connecting
@@ -96,4 +95,3 @@ namespace Gurux.Terminal
         private System.Windows.Forms.Panel panel1;
     }
 }
-#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1

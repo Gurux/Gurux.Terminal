@@ -286,5 +286,29 @@ namespace Gurux.Terminal.Properties {
             }
         }
 #endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
+
+
+        /// <summary>
+        ///   Looks up a localized string similar to OK.
+        /// </summary>
+        internal static string OK
+        {
+            get
+            {
+                return ResourceManager.GetString("OK", resourceCulture);
+            }
+        }
+
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cancel.
+        /// </summary>
+        internal static string Cancel
+        {
+            get
+            {
+                return ResourceManager.GetString("Cancel", resourceCulture);
+            }
+        }
     }
 }

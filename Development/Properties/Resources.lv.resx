@@ -118,73 +118,69 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="BaudRate" xml:space="preserve">
-    <value>Baud Rate:</value>
-  </data>
-  <data name="Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>Pārraides ātrumu:</value>
   </data>
   <data name="CommandWaitTimeTxt" xml:space="preserve">
-    <value>Command wait time:</value>
+    <value>Komandas gaidīšanas laiks:</value>
   </data>
   <data name="Connecting" xml:space="preserve">
-    <value>Connecting...</value>
+    <value>Notiek savienojuma izveide ...</value>
   </data>
   <data name="ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: busy (when telephone call was being established).</value>
+    <value>Savienojums neizdevās: aizņemts (kad tika izveidots tālruņa zvans).</value>
   </data>
   <data name="ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: error (when telephone call was being established).</value>
+    <value>Savienojums neizdevās: kļūda (kad tika izveidots tālruņa zvans).</value>
   </data>
   <data name="ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: no carrier (when telephone call was being established). </value>
+    <value>Savienojums neizdevās: nav mobilo sakaru operatora (kad tika izveidots tālruņa zvans).</value>
   </data>
   <data name="ConnectionWaitTimeTxt" xml:space="preserve">
-    <value>Connection wait time:</value>
+    <value>Savienojuma gaidīšanas laiks:</value>
   </data>
   <data name="DataBits" xml:space="preserve">
-    <value>Data Bits:</value>
+    <value>Datu biti:</value>
   </data>
   <data name="Eop" xml:space="preserve">
     <value>Eop:</value>
   </data>
   <data name="FailedToReceiveAnswerFromTheModemCheckSerialPort" xml:space="preserve">
-    <value>Failed to receive answer from the modem. Check serial port.</value>
+    <value>Neizdevās saņemt atbildi no modema. Pārbaudiet seriālo portu.</value>
   </data>
   <data name="HangsUpDelayTxt" xml:space="preserve">
-    <value>Hangs up delay:</value>
+    <value>Pārtrauciet kavēšanos:</value>
   </data>
   <data name="InvalidReply" xml:space="preserve">
-    <value>Invalid reply.</value>
+    <value>Nederīga atbilde.</value>
   </data>
   <data name="None" xml:space="preserve">
-    <value>None</value>
-  </data>
-  <data name="OK" xml:space="preserve">
-    <value>OK</value>
+    <value>Nav</value>
   </data>
   <data name="Parity" xml:space="preserve">
-    <value>Parity:</value>
+    <value>Paritāte:</value>
   </data>
   <data name="PhoneNumberTxt" xml:space="preserve">
-    <value>Phone Number</value>
+    <value>Telefona numurs</value>
   </data>
   <data name="Port" xml:space="preserve">
-    <value>Port:</value>
+    <value>Osta:</value>
   </data>
   <data name="PortNameTxt" xml:space="preserve">
-    <value>Serial Port:</value>
+    <value>Sērijas ports:</value>
   </data>
   <data name="Settings" xml:space="preserve">
-    <value>Settings:</value>
+    <value>Iestatījumi:</value>
   </data>
   <data name="SettingsTxt" xml:space="preserve">
-    <value>Terminal Settings</value>
+    <value>Termināla iestatījumi</value>
   </data>
   <data name="StopBits" xml:space="preserve">
-    <value>Stop Bits:</value>
+    <value>Stop biti:</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="terminal" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\terminal.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="Cancel" xml:space="preserve">
+    <value>Atcelt</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>labi</value>
   </data>
 </root>

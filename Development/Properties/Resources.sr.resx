@@ -118,73 +118,69 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="BaudRate" xml:space="preserve">
-    <value>Baud Rate:</value>
-  </data>
-  <data name="Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>Број бауда:</value>
   </data>
   <data name="CommandWaitTimeTxt" xml:space="preserve">
-    <value>Command wait time:</value>
+    <value>Време чекања наредбе:</value>
   </data>
   <data name="Connecting" xml:space="preserve">
-    <value>Connecting...</value>
+    <value>Повезивање ...</value>
   </data>
   <data name="ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: busy (when telephone call was being established).</value>
+    <value>Веза није успела: заузета (када је успостављен телефонски позив).</value>
   </data>
   <data name="ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: error (when telephone call was being established).</value>
+    <value>Веза није успела: грешка (када је успостављен телефонски позив).</value>
   </data>
   <data name="ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: no carrier (when telephone call was being established). </value>
+    <value>Веза није успела: нема оператера (када је успостављен телефонски позив).</value>
   </data>
   <data name="ConnectionWaitTimeTxt" xml:space="preserve">
-    <value>Connection wait time:</value>
+    <value>Време чекања везе:</value>
   </data>
   <data name="DataBits" xml:space="preserve">
-    <value>Data Bits:</value>
+    <value>Битови података:</value>
   </data>
   <data name="Eop" xml:space="preserve">
-    <value>Eop:</value>
+    <value>Еоп:</value>
   </data>
   <data name="FailedToReceiveAnswerFromTheModemCheckSerialPort" xml:space="preserve">
-    <value>Failed to receive answer from the modem. Check serial port.</value>
+    <value>Примање одговора од модема није успело. Проверите серијски порт.</value>
   </data>
   <data name="HangsUpDelayTxt" xml:space="preserve">
-    <value>Hangs up delay:</value>
+    <value>Одлагање прекида:</value>
   </data>
   <data name="InvalidReply" xml:space="preserve">
-    <value>Invalid reply.</value>
+    <value>Неважећи одговор.</value>
   </data>
   <data name="None" xml:space="preserve">
-    <value>None</value>
-  </data>
-  <data name="OK" xml:space="preserve">
-    <value>OK</value>
+    <value>Ниједан</value>
   </data>
   <data name="Parity" xml:space="preserve">
-    <value>Parity:</value>
+    <value>Паритет:</value>
   </data>
   <data name="PhoneNumberTxt" xml:space="preserve">
-    <value>Phone Number</value>
+    <value>Број телефона</value>
   </data>
   <data name="Port" xml:space="preserve">
-    <value>Port:</value>
+    <value>Лука:</value>
   </data>
   <data name="PortNameTxt" xml:space="preserve">
-    <value>Serial Port:</value>
+    <value>Серијски порт:</value>
   </data>
   <data name="Settings" xml:space="preserve">
-    <value>Settings:</value>
+    <value>Подешавања:</value>
   </data>
   <data name="SettingsTxt" xml:space="preserve">
-    <value>Terminal Settings</value>
+    <value>Подешавања терминала</value>
   </data>
   <data name="StopBits" xml:space="preserve">
-    <value>Stop Bits:</value>
+    <value>Стоп битови:</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="terminal" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\terminal.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="Cancel" xml:space="preserve">
+    <value>Поништити, отказати</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>ок</value>
   </data>
 </root>

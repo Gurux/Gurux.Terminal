@@ -118,73 +118,69 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="BaudRate" xml:space="preserve">
-    <value>Baud Rate:</value>
-  </data>
-  <data name="Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>Prenosová rýchlosť:</value>
   </data>
   <data name="CommandWaitTimeTxt" xml:space="preserve">
-    <value>Command wait time:</value>
+    <value>Čas čakania na príkaz:</value>
   </data>
   <data name="Connecting" xml:space="preserve">
-    <value>Connecting...</value>
+    <value>Pripája sa ...</value>
   </data>
   <data name="ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: busy (when telephone call was being established).</value>
+    <value>Pripojenie zlyhalo: zaneprázdnené (pri vytváraní telefónneho hovoru).</value>
   </data>
   <data name="ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: error (when telephone call was being established).</value>
+    <value>Pripojenie zlyhalo: chyba (pri vytváraní telefónneho hovoru).</value>
   </data>
   <data name="ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: no carrier (when telephone call was being established). </value>
+    <value>Pripojenie zlyhalo: žiadny operátor (pri vytváraní telefónneho hovoru).</value>
   </data>
   <data name="ConnectionWaitTimeTxt" xml:space="preserve">
-    <value>Connection wait time:</value>
+    <value>Čas čakania na pripojenie:</value>
   </data>
   <data name="DataBits" xml:space="preserve">
-    <value>Data Bits:</value>
+    <value>Dátové bity:</value>
   </data>
   <data name="Eop" xml:space="preserve">
-    <value>Eop:</value>
+    <value>EOP:</value>
   </data>
   <data name="FailedToReceiveAnswerFromTheModemCheckSerialPort" xml:space="preserve">
-    <value>Failed to receive answer from the modem. Check serial port.</value>
+    <value>Nepodarilo sa prijať odpoveď z modemu. Skontrolujte sériový port.</value>
   </data>
   <data name="HangsUpDelayTxt" xml:space="preserve">
-    <value>Hangs up delay:</value>
+    <value>Oneskorenie zavesenia:</value>
   </data>
   <data name="InvalidReply" xml:space="preserve">
-    <value>Invalid reply.</value>
+    <value>Neplatná odpoveď.</value>
   </data>
   <data name="None" xml:space="preserve">
-    <value>None</value>
-  </data>
-  <data name="OK" xml:space="preserve">
-    <value>OK</value>
+    <value>Žiadne</value>
   </data>
   <data name="Parity" xml:space="preserve">
-    <value>Parity:</value>
+    <value>Parita:</value>
   </data>
   <data name="PhoneNumberTxt" xml:space="preserve">
-    <value>Phone Number</value>
+    <value>Telefónne číslo</value>
   </data>
   <data name="Port" xml:space="preserve">
-    <value>Port:</value>
+    <value>Prístav:</value>
   </data>
   <data name="PortNameTxt" xml:space="preserve">
-    <value>Serial Port:</value>
+    <value>Sériový port:</value>
   </data>
   <data name="Settings" xml:space="preserve">
-    <value>Settings:</value>
+    <value>Nastavenie:</value>
   </data>
   <data name="SettingsTxt" xml:space="preserve">
-    <value>Terminal Settings</value>
+    <value>Nastavenia terminálu</value>
   </data>
   <data name="StopBits" xml:space="preserve">
-    <value>Stop Bits:</value>
+    <value>Stop bity:</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="terminal" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\terminal.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="Cancel" xml:space="preserve">
+    <value>Zrušiť</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>Ok</value>
   </data>
 </root>

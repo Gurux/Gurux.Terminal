@@ -118,73 +118,69 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="BaudRate" xml:space="preserve">
-    <value>Baud Rate:</value>
-  </data>
-  <data name="Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>బాడ్ రేటు:</value>
   </data>
   <data name="CommandWaitTimeTxt" xml:space="preserve">
-    <value>Command wait time:</value>
+    <value>కమాండ్ వేచి ఉండే సమయం:</value>
   </data>
   <data name="Connecting" xml:space="preserve">
-    <value>Connecting...</value>
+    <value>కనెక్ట్ అవుతోంది ...</value>
   </data>
   <data name="ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: busy (when telephone call was being established).</value>
+    <value>కనెక్షన్ విఫలమైంది: బిజీగా ఉంది (టెలిఫోన్ కాల్ స్థాపించబడినప్పుడు).</value>
   </data>
   <data name="ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: error (when telephone call was being established).</value>
+    <value>కనెక్షన్ విఫలమైంది: లోపం (టెలిఫోన్ కాల్ స్థాపించబడినప్పుడు).</value>
   </data>
   <data name="ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: no carrier (when telephone call was being established). </value>
+    <value>కనెక్షన్ విఫలమైంది: క్యారియర్ లేదు (టెలిఫోన్ కాల్ స్థాపించబడినప్పుడు).</value>
   </data>
   <data name="ConnectionWaitTimeTxt" xml:space="preserve">
-    <value>Connection wait time:</value>
+    <value>కనెక్షన్ వేచి ఉండే సమయం:</value>
   </data>
   <data name="DataBits" xml:space="preserve">
-    <value>Data Bits:</value>
+    <value>డేటా బిట్స్:</value>
   </data>
   <data name="Eop" xml:space="preserve">
     <value>Eop:</value>
   </data>
   <data name="FailedToReceiveAnswerFromTheModemCheckSerialPort" xml:space="preserve">
-    <value>Failed to receive answer from the modem. Check serial port.</value>
+    <value>మోడెమ్ నుండి సమాధానం స్వీకరించడంలో విఫలమైంది. సీరియల్ పోర్ట్ తనిఖీ చేయండి.</value>
   </data>
   <data name="HangsUpDelayTxt" xml:space="preserve">
-    <value>Hangs up delay:</value>
+    <value>ఆలస్యం అవుతోంది:</value>
   </data>
   <data name="InvalidReply" xml:space="preserve">
-    <value>Invalid reply.</value>
+    <value>చెల్లని సమాధానం.</value>
   </data>
   <data name="None" xml:space="preserve">
-    <value>None</value>
-  </data>
-  <data name="OK" xml:space="preserve">
-    <value>OK</value>
+    <value>ఏదీ లేదు</value>
   </data>
   <data name="Parity" xml:space="preserve">
-    <value>Parity:</value>
+    <value>సమానత్వం:</value>
   </data>
   <data name="PhoneNumberTxt" xml:space="preserve">
-    <value>Phone Number</value>
+    <value>ఫోను నంబరు</value>
   </data>
   <data name="Port" xml:space="preserve">
-    <value>Port:</value>
+    <value>పోర్ట్:</value>
   </data>
   <data name="PortNameTxt" xml:space="preserve">
-    <value>Serial Port:</value>
+    <value>సీరియల్ పోర్ట్:</value>
   </data>
   <data name="Settings" xml:space="preserve">
-    <value>Settings:</value>
+    <value>సెట్టింగులు:</value>
   </data>
   <data name="SettingsTxt" xml:space="preserve">
-    <value>Terminal Settings</value>
+    <value>టెర్మినల్ సెట్టింగులు</value>
   </data>
   <data name="StopBits" xml:space="preserve">
-    <value>Stop Bits:</value>
+    <value>బిట్స్ ఆపు:</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="terminal" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\terminal.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="Cancel" xml:space="preserve">
+    <value>రద్దు చేయండి</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>అలాగే</value>
   </data>
 </root>

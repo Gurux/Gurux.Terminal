@@ -2175,7 +2175,7 @@ namespace Gurux.Terminal
         /// <seealso href="PropertiesDialog.html">Properties Dialog</seealso>
         public bool Properties(Form parent)
         {
-            return new Gurux.Shared.PropertiesForm(this.PropertiesForm, Gurux.Terminal.Properties.Resources.SettingsTxt, IsOpen).ShowDialog(parent) == DialogResult.OK;
+            return new Gurux.Shared.PropertiesForm(this.PropertiesForm, Resources.SettingsTxt, IsOpen, Resources.OK, Resources.Cancel, "https://www.gurux.fi/GXTerminalProperties").ShowDialog(parent) == DialogResult.OK;
         }
 
         /// <summary>

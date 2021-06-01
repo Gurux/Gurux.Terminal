@@ -1,5 +1,4 @@
-﻿#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
-namespace Gurux.Terminal
+﻿namespace Gurux.Terminal
 {
 partial class Settings
 {
@@ -433,4 +432,3 @@ partial class Settings
         private System.Windows.Forms.Label HangsUpDelayLbl;
     }
 }
-#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1

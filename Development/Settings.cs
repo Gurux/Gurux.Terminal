@@ -30,7 +30,6 @@
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
 //---------------------------------------------------------------------------
 
-#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
 using System;
 using System.ComponentModel;
 using System.Windows.Forms;
@@ -129,10 +128,10 @@ namespace Gurux.Terminal
             Text = Gurux.Terminal.Properties.Resources.SettingsTxt;
             NumberLbl.Text = Gurux.Terminal.Properties.Resources.PhoneNumberTxt;
             PortNameLbl.Text = Gurux.Terminal.Properties.Resources.PortNameTxt;
-            BaudRateLbl.Text = Gurux.Terminal.Properties.Resources.BaudRateTxt;
-            DataBitsLbl.Text = Gurux.Terminal.Properties.Resources.DataBitsTxt;
-            ParityLbl.Text = Gurux.Terminal.Properties.Resources.ParityTxt;
-            StopBitsLbl.Text = Gurux.Terminal.Properties.Resources.StopBitsTxt;
+            BaudRateLbl.Text = Gurux.Terminal.Properties.Resources.BaudRate;
+            DataBitsLbl.Text = Gurux.Terminal.Properties.Resources.DataBits;
+            ParityLbl.Text = Gurux.Terminal.Properties.Resources.Parity;
+            StopBitsLbl.Text = Gurux.Terminal.Properties.Resources.StopBits;
             ConnectionWaitTimeLbl.Text = Gurux.Terminal.Properties.Resources.ConnectionWaitTimeTxt;
             CommandWaitTimeLbl.Text = Gurux.Terminal.Properties.Resources.CommandWaitTimeTxt;
             HangsUpDelayLbl.Text = Gurux.Terminal.Properties.Resources.HangsUpDelayTxt;
@@ -206,7 +205,45 @@ namespace Gurux.Terminal
             ConnectionWaitTimePanel.Enabled = (Target.ConfigurableSettings & AvailableMediaSettings.ConnectionWaitTime) != 0;
             CommandWaitTimePanel.Enabled = (Target.ConfigurableSettings & AvailableMediaSettings.CommandWaitTime) != 0;
             HangsUpDelayPanel.Enabled = (Target.ConfigurableSettings & AvailableMediaSettings.HangsUpDelay) != 0;
+            UpdateEditBoxSizes();
             Dirty = false;
+        }
+
+        /// <summary>
+        /// Because label lenght depends from the localization string, edit box sizes must be update.
+        /// </summary>
+        private void UpdateEditBoxSizes()
+        {
+            //Find max length of the localization string.
+            int maxLength = 0;
+            foreach (Control it in this.Controls)
+            {
+                if (it.Enabled)
+                {
+                    foreach (Control it2 in it.Controls)
+                    {
+                        if (it2 is Label && it2.Right > maxLength)
+                        {
+                            maxLength = it2.Right;
+                        }
+                    }
+                }
+            }
+            //Increase edit control length.
+            foreach (Control it in this.Controls)
+            {
+                if (it.Enabled)
+                {
+                    foreach (Control it2 in it.Controls)
+                    {
+                        if (it2 is ComboBox || it2 is TextBox)
+                        {
+                            it2.Width += it2.Left - maxLength - 10;
+                            it2.Left = maxLength + 10;
+                        }
+                    }
+                }
+            }
         }
 
         #endregion
@@ -298,4 +335,3 @@ namespace Gurux.Terminal
         }
     }
 }
-#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1
