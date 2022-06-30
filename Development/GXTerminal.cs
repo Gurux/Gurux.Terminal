@@ -67,6 +67,7 @@ namespace Gurux.Terminal
         int hangsUpDelay = 0;
         int connectionWaitTime = 30000;
         int commandWaitTime = 3000;
+        string initializeCommands = null;
         private object m_sync = new object();
 
         Progress progress;
@@ -1268,6 +1269,44 @@ namespace Gurux.Terminal
         }
 
         /// <summary>
+        /// Get or set modem initial settings separated by semicolons
+        /// </summary>
+        [MonitoringDescription("InitializeCommands")]
+        [Browsable(true)]
+        [DefaultValue(null)]
+        public string InitializeCommands
+        {
+            get
+            {
+                if (IsVirtual && m_OnGetPropertyValue != null)
+                {
+                    string value = m_OnGetPropertyValue("InitializeCommands");
+                    if (value != null)
+                    {
+                        return value;
+                    }
+                }
+                lock (baseLock)
+                {
+                    return initializeCommands;
+                }
+            }
+            set
+            {
+                bool change;
+                lock (baseLock)
+                {
+                    change = initializeCommands != value;
+                    initializeCommands = value;
+                }
+                if (change)
+                {
+                    NotifyPropertyChanged("InitializeCommands");
+                }
+            }
+        }
+
+        /// <summary>
         /// Closes the port connection, sets the System.IO.Ports.SerialPort.IsOpen property to false, and disposes of the internal System.IO.Stream object.
         /// </summary>
         public void Close()
@@ -1456,7 +1495,8 @@ namespace Gurux.Terminal
                     {
                         if (InitializeCommands != null)
                         {
-                            foreach (string it in InitializeCommands)
+                            string[] initCommands = InitializeCommands.Split(new char[] { ';' });
+                            foreach (string it in initCommands)
                             {
                                 SendCommand(it + "\r\n", commandWaitTime, null, true);
                             }
@@ -1970,15 +2010,6 @@ namespace Gurux.Terminal
         }
 
         /// <summary>
-        /// Modem initial settings.
-        /// </summary>
-        string[] InitializeCommands
-        {
-            get;
-            set;
-        }
-
-        /// <summary>
         /// Media settings as a XML string.
         /// </summary>
         public string Settings
@@ -2016,7 +2047,7 @@ namespace Gurux.Terminal
                 }
                 if (this.InitializeCommands != null)
                 {
-                    tmp += "<Init>" + string.Join(";", InitializeCommands) + "</Init>";
+                    tmp += "<Init>" + InitializeCommands + "</Init>";
                 }
                 if (this.ConnectionWaitTime != 30000)
                 {
@@ -2053,7 +2084,7 @@ namespace Gurux.Terminal
                                 switch (xmlReader.Name)
                                 {
                                     case "Init":
-                                        InitializeCommands = xmlReader.ReadString().Split(new char[] { ';' });
+                                        InitializeCommands = xmlReader.ReadString();
                                         break;
                                     case "Number":
                                         phoneNumber = xmlReader.ReadString();
