@@ -38,9 +38,9 @@ using System.ComponentModel;
 using Gurux.Common;
 using System.IO;
 using Gurux.Shared;
-#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_1 && !NETCOREAPP3_1 && !NET6_0
+#if NET462_OR_GREATER || WINDOWS
 using System.Windows.Forms;
-#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_1 && !NETCOREAPP3_1 && !NET6_0
+#endif //NET462_OR_GREATER || WINDOWS
 using System.Xml;
 using System.Diagnostics;
 using System.IO.Ports;
@@ -2131,6 +2131,7 @@ namespace Gurux.Terminal
             return sb.ToString();
         }
 
+        /// <inheritdoc />
         string Gurux.Common.IGXMedia.MediaType
         {
             get
@@ -2139,6 +2140,7 @@ namespace Gurux.Terminal
             }
         }
 
+        /// <inheritdoc />
         bool Gurux.Common.IGXMedia.Enabled
         {
             get
@@ -2147,6 +2149,7 @@ namespace Gurux.Terminal
             }
         }
 
+        /// <inheritdoc />
         string Gurux.Common.IGXMedia.Name
         {
             get
@@ -2163,7 +2166,7 @@ namespace Gurux.Terminal
         {
             ((Gurux.Common.IGXMedia)this).Send(data, null);
         }
-#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_1 && !NETCOREAPP3_1 && !NET6_0
+#if NET462_OR_GREATER || WINDOWS
         /// <summary>
         /// Shows the serial port Properties dialog.
         /// </summary>
@@ -2188,9 +2191,9 @@ namespace Gurux.Terminal
                 return new Settings(this);
             }
         }
-#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_1 && !NETCOREAPP3_1 && !NET6_0
+#endif //NET462_OR_GREATER || WINDOWS
 
-        /// <inheritdoc cref="IGXMedia.Receive"/>
+        /// <inheritdoc />
         public bool Receive<T>(Gurux.Common.ReceiveParameters<T> args)
         {
             if (!IsOpen)
@@ -2200,6 +2203,7 @@ namespace Gurux.Terminal
             return m_syncBase.Receive(args);
         }
 
+        /// <inheritdoc />
         void Gurux.Common.IGXMedia.Send(object data, string receiver)
         {
             byte[] value = Gurux.Common.GXCommon.GetAsByteArray(data);
@@ -2232,18 +2236,21 @@ namespace Gurux.Terminal
 
         }
 
+        /// <inheritdoc />
         int Gurux.Common.IGXMedia.ConfigurableSettings
         {
             get;
             set;
         }
 
+        /// <inheritdoc />
         uint IGXMedia2.AsyncWaitTime
         {
             get;
             set;
         }
 
+        /// <inheritdoc />
         EventWaitHandle IGXMedia2.AsyncWaitHandle
         {
             get
