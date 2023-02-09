@@ -41,9 +41,10 @@ namespace Gurux.Terminal
     /// </summary>
     partial class Settings : Form, IGXPropertyPage, INotifyPropertyChanged
     {
-        GXTerminal Target;
+        private bool _initialize = true;
+        private GXTerminal Target;
 
-        PropertyChangedEventHandler propertyChanged;
+        private PropertyChangedEventHandler propertyChanged;
 
         public bool Dirty
         {
@@ -207,6 +208,7 @@ namespace Gurux.Terminal
             HangsUpDelayPanel.Enabled = (Target.ConfigurableSettings & AvailableMediaSettings.HangsUpDelay) != 0;
             UpdateEditBoxSizes();
             Dirty = false;
+            _initialize = false;
         }
 
         /// <summary>
@@ -251,11 +253,23 @@ namespace Gurux.Terminal
         private void ServerCB_CheckedChanged(object sender, EventArgs e)
         {
             NumberTB.Enabled = !ServerCB.Checked;
+            if (!_initialize)
+            {
+                Target.Server = this.ServerCB.Checked;
+            }
+            if (propertyChanged != null)
+            {
+                propertyChanged(this, new PropertyChangedEventArgs("Server"));
+            }
         }
 
         private void NumberTB_TextChanged(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.PhoneNumber = this.NumberTB.Text;
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("Number"));
@@ -265,6 +279,10 @@ namespace Gurux.Terminal
         private void PortNameCB_SelectedIndexChanged_1(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.PortName = this.PortNameCB.Text;
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("PortName"));
@@ -274,6 +292,10 @@ namespace Gurux.Terminal
         private void BaudRateCB_SelectedIndexChanged(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.BaudRate = Convert.ToInt32(this.BaudRateCB.Text);
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("BaudRate"));
@@ -283,6 +305,10 @@ namespace Gurux.Terminal
         private void DataBitsCB_SelectedIndexChanged(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.DataBits = Convert.ToInt32(this.DataBitsCB.Text);
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("DataBits"));
@@ -292,6 +318,10 @@ namespace Gurux.Terminal
         private void ParityCB_SelectedIndexChanged(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.Parity = (System.IO.Ports.Parity)this.ParityCB.SelectedItem;
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("Parity"));
@@ -301,6 +331,10 @@ namespace Gurux.Terminal
         private void StopBitsCB_SelectedIndexChanged(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.StopBits = (System.IO.Ports.StopBits)this.StopBitsCB.SelectedItem;
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("StopBits"));
@@ -310,6 +344,10 @@ namespace Gurux.Terminal
         private void ConnectionWaitTimeTb_TextChanged(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.ConnectionWaitTime = Convert.ToInt32(this.ConnectionWaitTimeTb.Text);
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("ConnectionWaitTime"));
@@ -319,6 +357,10 @@ namespace Gurux.Terminal
         private void CommandWaitTimeTb_TextChanged(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.CommandWaitTime = Convert.ToInt32(this.CommandWaitTimeTb.Text);
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("CommandWaitTime"));
@@ -328,6 +370,10 @@ namespace Gurux.Terminal
         private void HangsUpDelayTb_TextChanged(object sender, EventArgs e)
         {
             Dirty = true;
+            if (!_initialize)
+            {
+                Target.HangsUpDelay = Convert.ToInt32(this.HangsUpDelayTb.Text);
+            }
             if (propertyChanged != null)
             {
                 propertyChanged(this, new PropertyChangedEventArgs("HangsUpDelay"));
