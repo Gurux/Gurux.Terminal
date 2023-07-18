@@ -65,7 +65,7 @@ namespace Gurux.Terminal
     {
         bool IsVirtual, VirtualOpen;
         int hangsUpDelay = 0;
-        int connectionWaitTime = 30000;
+        int connectionWaitTime = 60000;
         int commandWaitTime = 3000;
         string initializeCommands = null;
         private object m_sync = new object();
@@ -1236,6 +1236,9 @@ namespace Gurux.Terminal
         /// <summary>
         /// Get or set how long (ms) is waited before hang up is called.
         /// </summary>
+        [MonitoringDescription("HangsUpDelay")]
+        [Browsable(true)]
+        [DefaultValue(3000)]
         public int HangsUpDelay
         {
             get
@@ -1347,18 +1350,7 @@ namespace Gurux.Terminal
                                     {
                                         if (progress == Progress.Connected)
                                         {
-                                            //We are not expecting reply.
-                                            Thread.Sleep(1000);
-                                            Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
-                                            {
-                                                WaitTime = connectionWaitTime,
-                                                Count = 3
-                                            };
-                                            SendBytes(ASCIIEncoding.ASCII.GetBytes("+++"));
-                                            //It's OK if this fails.
-                                            Receive(p);
-                                            Thread.Sleep(HangsUpDelay);
-                                            SendCommand("ATH0\r", connectionWaitTime, null, false);
+                                            SendHangup();
                                         }
                                     }
                                 }
@@ -1389,6 +1381,23 @@ namespace Gurux.Terminal
                     NotifyMediaStateChange(MediaState.Closed);
                 }
             }
+        }
+
+        public void SendHangup()
+        {
+            //We are not expecting reply.
+            Thread.Sleep(1500);
+            Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
+            {
+                WaitTime = connectionWaitTime,
+                Count = 3                
+            };
+            SendBytes(ASCIIEncoding.ASCII.GetBytes("+++"));
+            //It's OK if this fails.
+            //Receive(p);
+            Thread.Sleep(HangsUpDelay);
+            DiscardInBuffer();
+            SendCommand("ATH0\r", connectionWaitTime, null, false);
         }
 
         /// <summary>
@@ -1531,6 +1540,7 @@ namespace Gurux.Terminal
                                 }
                             }
                             progress = Progress.Connecting;
+                            DiscardInBuffer();
                             reply = SendCommand("ATD" + PhoneNumber + "\r\n", connectionWaitTime, null, true);
                             progress = Progress.Connected;
                         }
@@ -1538,6 +1548,7 @@ namespace Gurux.Terminal
                 }
                 catch (Exception)
                 {
+                    //SendHangup();
                     Close();
                     throw;
                 }
@@ -1568,7 +1579,7 @@ namespace Gurux.Terminal
             }
         }
 
-        string SendCommand(string cmd, int wt, string eop, bool throwError)
+        public string SendCommand(string cmd, int wt, string eop, bool throwError)
         {
             Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
             {
@@ -1580,6 +1591,8 @@ namespace Gurux.Terminal
                 p.Eop = null;
                 p.Count = cmd.Length;
             }
+            //Console.Write(">>>" + cmd);
+
             SendBytes(ASCIIEncoding.ASCII.GetBytes(cmd));
             StringBuilder sb = new StringBuilder();
             int index = -1;
@@ -1613,6 +1626,7 @@ namespace Gurux.Terminal
                 }
                 else if (reply.Length > 5)
                 {
+                    //Console.Write("<<<" + reply);
                     index = reply.LastIndexOf("\r\nOK\r\n");
                     if (index == -1)
                     {
@@ -1641,7 +1655,7 @@ namespace Gurux.Terminal
                                     str += Environment.NewLine + SendCommand("AT+CEER\r", wt, null, false);
                                     throw new Exception(str);
                                 }
-                                if (reply.LastIndexOf("ERROR") != -1)
+                                if (reply.LastIndexOf("ERROR") != -1 || reply.LastIndexOf("DELAYED") != -1)
                                 {
                                     throw new Exception(Resources.ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished);
                                 }
@@ -2049,7 +2063,7 @@ namespace Gurux.Terminal
                 {
                     tmp += "<Init>" + InitializeCommands + "</Init>";
                 }
-                if (this.ConnectionWaitTime != 30000)
+                if (this.ConnectionWaitTime != 60000)
                 {
                     tmp += "<ConnectionWaitTime>" + ConnectionWaitTime + "</ConnectionWaitTime>";
                 }
@@ -2072,7 +2086,7 @@ namespace Gurux.Terminal
                     string str;
                     int result;
 
-                    ConnectionWaitTime = 30000;
+                    ConnectionWaitTime = 60000;
                     CommandWaitTime = 3000;
                     HangsUpDelay = 0;
                     using (XmlReader xmlReader = XmlReader.Create(new System.IO.StringReader(value), settings))
