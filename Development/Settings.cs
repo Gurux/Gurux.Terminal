@@ -46,6 +46,7 @@ namespace Gurux.Terminal
 
         private PropertyChangedEventHandler propertyChanged;
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool Dirty
         {
             get;

@@ -32,15 +32,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.ComponentModel;
 using Gurux.Common;
 using System.IO;
 using Gurux.Shared;
-#if NET462_OR_GREATER || WINDOWS
-using System.Windows.Forms;
-#endif //NET462_OR_GREATER || WINDOWS
 using System.Xml;
 using System.Diagnostics;
 using System.IO.Ports;
@@ -2168,7 +2164,7 @@ namespace Gurux.Terminal
         }
 #if NET462_OR_GREATER || WINDOWS
         /// <summary>
-        /// Shows the serial port Properties dialog.
+        /// Shows the terminal port Properties dialog.
         /// </summary>
         /// <param name="parent">Owner window of the Properties dialog.</param>
         /// <returns>True, if the user has accepted the changes.</returns>
@@ -2176,9 +2172,11 @@ namespace Gurux.Terminal
         /// <seealso cref="BaudRate">BaudRate</seealso>
         /// <seealso cref="DataBits">DataBits</seealso>
         /// <seealso href="PropertiesDialog.html">Properties Dialog</seealso>
-        public bool Properties(Form parent)
+        public bool Properties(System.Windows.Forms.Form parent)
         {
-            return new Gurux.Shared.PropertiesForm(this.PropertiesForm, Resources.SettingsTxt, IsOpen, Resources.OK, Resources.Cancel, "https://www.gurux.fi/GXTerminalProperties").ShowDialog(parent) == DialogResult.OK;
+            return new Gurux.Shared.PropertiesForm(PropertiesForm, Resources.SettingsTxt, IsOpen, 
+            Resources.OK, Resources.Cancel, 
+            "https://www.gurux.fi/GXTerminalProperties").ShowDialog(parent) == System.Windows.Forms.DialogResult.OK;
         }
 
         /// <summary>
@@ -2265,9 +2263,9 @@ namespace Gurux.Terminal
             set;
         }
 
-#endregion
+        #endregion
 
-#region IDisposable Members
+        #region IDisposable Members
 
         /// <summary>
         /// Closes the connection.
@@ -2280,6 +2278,6 @@ namespace Gurux.Terminal
             }
         }
 
-#endregion
+        #endregion
     }
 }
