@@ -32,15 +32,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.ComponentModel;
 using Gurux.Common;
 using System.IO;
 using Gurux.Shared;
-#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1 && !NET6_0
-using System.Windows.Forms;
-#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1 && !NET6_0
 using System.Xml;
 using System.Diagnostics;
 using System.IO.Ports;
@@ -2208,7 +2204,7 @@ namespace Gurux.Terminal
         {
             ((Gurux.Common.IGXMedia)this).Send(data, null);
         }
-#if !NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1 && !NET6_0
+#if NET462_OR_GREATER || WINDOWS
         /// <summary>
         /// Shows the serial port Properties dialog.
         /// </summary>
@@ -2233,7 +2229,7 @@ namespace Gurux.Terminal
                 return new Settings(this);
             }
         }
-#endif //!NETSTANDARD2_0 && !NETSTANDARD2_1 && !NETCOREAPP2_0 && !NETCOREAPP2_1 && !NETCOREAPP3_1 && !NET6_0
+#endif //NET462_OR_GREATER || WINDOWS
 
         /// <inheritdoc cref="IGXMedia.Receive"/>
         public bool Receive<T>(Gurux.Common.ReceiveParameters<T> args)
