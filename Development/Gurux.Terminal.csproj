@@ -54,7 +54,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Gurux.Common" Version="8.4.2503.602" />
-		<PackageReference Include="System.Resources.Extensions" Version="9.0.2" />
+		<PackageReference Include="System.Resources.Extensions" Version="9.0.7" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net90-windows' or '$(TargetFramework)' == 'net80-windows' or '$(TargetFramework)' == 'net462'">
 		<Reference Include="System.Data.Linq" />
@@ -93,9 +93,9 @@
 		<PackageReference Include="System.IO.Ports" Version="6.0.0" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net90' or '$(TargetFramework)' == 'net80' or '$(TargetFramework)' == 'net9.0-windows' or '$(TargetFramework)' == 'net8.0-windows'">
-		<PackageReference Include="System.IO.Ports" Version="9.0.2" />
+		<PackageReference Include="System.IO.Ports" Version="9.0.7" />
 		<PackageReference Include="System.Drawing.Common">
-			<Version>8.0.15</Version>
+			<Version>9.0.7</Version>
 		</PackageReference>
 	</ItemGroup>
 	<ItemGroup>
