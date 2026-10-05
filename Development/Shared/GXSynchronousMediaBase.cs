@@ -260,40 +260,42 @@ namespace Gurux.Shared
             {
                 nFound = args.Count;
             }
-            if (args.AllData) //If all data is copied.
-            {
-                nFound = receivedSize;
-            }
-            if (nFound == 0)
-            {
-                retValue = false;
-            }
-            //Convert bytes to object.
-            byte[] tmp = new byte[nFound];
+            // Lettura di nFound, copia, decremento di receivedSize e compattazione del buffer avvengono
+            // in un'unica sezione critica: il thread di ricezione (AppendData) incrementa receivedSize
+            // sotto lo stesso lock, e un suo AppendData interposto tra la copia e il "receivedSize -= nFound"
+            // (prima eseguito fuori dal lock) perdeva o corrompeva i byte appena arrivati.
+            byte[] tmp;
             lock (receivedSync)
             {
+                if (args.AllData) //If all data is copied.
+                {
+                    nFound = receivedSize;
+                }
+                if (nFound == 0)
+                {
+                    retValue = false;
+                }
+                //Convert bytes to object.
+                tmp = new byte[nFound];
                 Array.Copy(m_Received, tmp, nFound);
-            }
-            int readBytes = 0;
-            object data = GXCommon.ByteArrayToObject(tmp, typeof(T), out readBytes);
-            //Remove read data.
-            receivedSize -= nFound;
-            //Received size can go less than zero if we have received data and we try to read more.
-            if (receivedSize < 0)
-            {
-                receivedSize = 0;
-            }
-            if (receivedSize != 0)
-            {
-                lock (receivedSync)
+                //Remove read data.
+                receivedSize -= nFound;
+                //Received size can go less than zero if we have received data and we try to read more.
+                if (receivedSize < 0)
+                {
+                    receivedSize = 0;
+                }
+                if (receivedSize != 0)
                 {
                     Array.Copy(m_Received, nFound, m_Received, 0, receivedSize);
                 }
+                else
+                {
+                    lastPosition = 0;
+                }
             }
-            else
-            {
-                lastPosition = 0;
-            }
+            int readBytes = 0;
+            object data = GXCommon.ByteArrayToObject(tmp, typeof(T), out readBytes);
             //Reset count after read.
             args.Count = 0;
             //Append data.
