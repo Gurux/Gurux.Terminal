@@ -24,6 +24,7 @@
     <PackageReference Include="Gurux.Serial.Avalonia" Version="$(GuruxSerialAvaloniaVersion)" />
   </ItemGroup>
   <ItemGroup>
+    <None Update="README.md" Pack="true" PackagePath="/" />
     <None Include="../../Development/GXTerminal.png" Pack="true" PackagePath="/" />
     <None Remove="Tests/**;tests/**" />
     <Content Remove="Tests/**;tests/**" />
