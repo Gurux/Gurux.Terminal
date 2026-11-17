@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.12.12405.243 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gurux.Terminal.Example", "Gurux.Terminal.Example.csproj", "{A53A7751-E184-4F45-8617-6F607A49E280}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A53A7751-E184-4F45-8617-6F607A49E280}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A53A7751-E184-4F45-8617-6F607A49E280}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A53A7751-E184-4F45-8617-6F607A49E280}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A53A7751-E184-4F45-8617-6F607A49E280}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -171,3 +171,7 @@ pip-log.txt
 *.lock
 *.ide
 Development/.vs/Gurux.Terminal/DesignTimeBuild/.dtbcache
+
+# Tests and validation outputs stay local.
+**/[Tt]ests/
+artifacts/

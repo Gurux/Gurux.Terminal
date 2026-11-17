@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile><DefaultItemExcludes>$(DefaultItemExcludes);Tests/**</DefaultItemExcludes>
+    <PackageId>Gurux.Terminal.Avalonia</PackageId><Version Condition="'$(BUILD_BUILDNUMBER)' == ''">0.0.1-local</Version><Version Condition="'$(BUILD_BUILDNUMBER)' != ''">$(BUILD_BUILDNUMBER)</Version>
+    <Authors>Gurux Ltd</Authors><Company>Gurux Ltd</Company><Description>Avalonia settings editor for Gurux Terminal media.</Description><PackageLicenseExpression>GPL-2.0-only</PackageLicenseExpression><PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.6" />
+    <ProjectReference Include="../../Development/Gurux.Terminal.csproj" />
+
+    <ProjectReference Include="../../../Gurux.Serial/UI/Gurux.Serial.Avalonia/Gurux.Serial.Avalonia.csproj" Condition="'$(UsePublishedGuruxPackages)' != 'true'" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <RepositoryUrl>https://github.com/Gurux/Gurux.Terminal</RepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageIcon>GXTerminal.png</PackageIcon>
+    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1601</GuruxCommonVersion>
+    <GuruxSerialAvaloniaVersion Condition="'$(GuruxSerialAvaloniaVersion)' == ''">[9.0.0,9.1.0)</GuruxSerialAvaloniaVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(UsePublishedGuruxPackages)' == 'true'">
+    <PackageReference Include="Gurux.Serial.Avalonia" Version="$(GuruxSerialAvaloniaVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../Development/GXTerminal.png" Pack="true" PackagePath="/" />
+    <None Remove="Tests/**;tests/**" />
+    <Content Remove="Tests/**;tests/**" />
+    <EmbeddedResource Remove="Tests/**;tests/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Gurux.Common" Version="9.0.2611.1601" />
+  </ItemGroup>
+</Project>

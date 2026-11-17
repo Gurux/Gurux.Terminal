@@ -1,2283 +1,527 @@
-//
 // --------------------------------------------------------------------------
-//  Gurux Ltd
+// Gurux Ltd
 //
+// Copyright (c) Gurux Ltd.
 //
+// This file is part of Gurux Device Framework.
 //
-// Filename:        $HeadURL$
+// Commit: $Format:%H$
+// Date:   $Format:%cI$
 //
-// Version:         $Revision$,
-//                  $Date$
-//                  $Author$
+// This software is available under either of the following licenses:
 //
-// Copyright (c) Gurux Ltd
+// 1. GNU General Public License, version 2 only (GPL-2.0-only).
+//    See the LICENSE file included with this distribution.
 //
-//---------------------------------------------------------------------------
+// 2. A commercial license granted by Gurux Ltd under a separate written
+//    agreement. Use under this option requires a valid commercial license
+//    and is governed by the terms of that agreement.
 //
-//  DESCRIPTION
+// If you have not obtained a commercial license from Gurux Ltd,
+// use of this software is governed by GPL-2.0-only.
 //
-// This file is a part of Gurux Device Framework.
+// Commercial licensing: https://www.gurux.fi/
 //
-// Gurux Device Framework is Open Source software; you can redistribute it
-// and/or modify it under the terms of the GNU General Public License
-// as published by the Free Software Foundation; version 2 of the License.
-// Gurux Device Framework is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-// See the GNU General Public License for more details.
-//
-// This code is licensed under the GNU General Public License v2.
-// Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
-//---------------------------------------------------------------------------
-
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.ComponentModel;
-using Gurux.Common;
-using System.IO;
-using Gurux.Shared;
-using System.Xml;
-using System.Diagnostics;
+// SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-Gurux-Commercial
+// --------------------------------------------------------------------------
 using System.IO.Ports;
-using System.Reflection;
-using System.Threading;
-using Gurux.Terminal.Properties;
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
+using System.Xml;
+using System.Xml.Linq;
+using System.Threading.Channels;
+using Gurux.Serial;
+using Gurux.Common;
 
-namespace Gurux.Terminal
+namespace Gurux.Terminal;
+/// <summary>AT modem serial media. Commands are serialized and modem errors are surfaced.</summary>
+public class GXTerminal : GXMediaBase, IGXMediaIconProvider
 {
-    enum Progress
+    /// <summary>Opens the embedded PNG icon for this media without loading a UI framework.</summary>
+    /// <returns>A new readable stream positioned at the beginning, or null if the embedded icon is unavailable.</returns>
+    /// <remarks>The caller owns the stream and must dispose it. Each call returns an independent stream.</remarks>
+    public virtual Stream? OpenIcon()
     {
-        None,
-        Connecting,
-        Connected
+        return typeof(GXTerminal).Assembly.GetManifestResourceStream("Gurux.Terminal.MediaIcon.png");
     }
 
-    /// <summary>
-    /// A media component that enables communication of Terminal port.
-    /// See help in http://www.gurux.org/index.php?q=Gurux.Terminal
-    /// </summary>
-    public class GXTerminal : IGXMedia2, IGXVirtualMedia, INotifyPropertyChanged, IDisposable
+    /// <summary>Occurs when the terminal reports a client connection attempt.</summary>
+    public event EventHandler<ConnectionEventArgs>? OnClientConnected;
+    /// <summary>Occurs when the terminal reports a client disconnection.</summary>
+    public event EventHandler<ConnectionEventArgs>? OnClientDisconnected;
+    /// <summary>Raises a terminal client connection event and returns its acceptance.</summary>
+    /// <param name="info">The connection description supplied to event handlers.</param>
+    /// <returns>Whether the connection event handlers accepted the reported client.</returns>
+    protected bool NotifyClientConnected(string info)
     {
-        bool IsVirtual, VirtualOpen;
-        int hangsUpDelay = 0;
-        int connectionWaitTime = 30000;
-        int commandWaitTime = 3000;
-        private object m_sync = new object();
+        var args = new ConnectionEventArgs(info);
+        OnClientConnected?.Invoke(this, args);
+        return args.Accept;
+    }
 
-        Progress progress;
-        bool server;
-        string phoneNumber;
-        TraceLevel trace;
-        readonly static Dictionary<string, List<int>> BaudRates = new Dictionary<string, List<int>>();
-        object m_Eop;
-        readonly GXSynchronousMediaBase m_syncBase;
-        UInt64 bytesSent, bytesReceived;
-        readonly object synchronous = new object();
-        readonly object baseLock = new object();
-        internal System.IO.Ports.SerialPort m_base = new System.IO.Ports.SerialPort();
-        ReceiveThread receiver;
-        Thread receiverThread;
+    /// <summary>Raises a terminal client disconnection event.</summary>
+    /// <param name="info">The connection description supplied to event handlers.</param>
+    protected void NotifyClientDisconnected(string info) => OnClientDisconnected?.Invoke(this, new ConnectionEventArgs(info));
+    /// <summary>Serializes modem command exchanges so their responses cannot overlap.</summary>
+    readonly SemaphoreSlim commands = new(1, 1);
+    /// <summary>Buffers modem response bytes for the currently active command exchange.</summary>
+    readonly Channel<byte> responses = Channel.CreateBounded<byte>(new BoundedChannelOptions(65536) { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
+    /// <summary>Owns the serial connection carrying AT commands and modem responses.</summary>
+    readonly GXSerial transport;
+    /// <summary>Serializes access to lifecycle transitions and pending cleanup state.</summary>
+    readonly object lifecycle = new();
+    /// <summary>Identifies callbacks executing within the current asynchronous open operation.</summary>
+    readonly AsyncLocal<bool> inOpening = new();
+    /// <summary>Signals completion of the currently pending open operation.</summary>
+    TaskCompletionSource? openingDone;
+    /// <summary>Indicates whether incoming bytes belong to an active modem exchange.</summary>
+    volatile bool awaitingResponse;
+    /// <summary>Cancels command reads when the modem closes or its response buffer overflows.</summary>
+    CancellationTokenSource commandLifetime = new();
+    /// <summary>Creates terminal media that owns an operating system serial port transport.</summary>
+    public GXTerminal() : this(new GXSerial())
+    {
+    }
 
-        /// <summary>
-        /// Get baud rates supported by given Terminal port.
-        /// </summary>
-        static public int[] GetAvailableBaudRates(string portName)
+    /// <summary>Creates terminal media that owns the stream returned by the supplied serial transport factory.</summary>
+    /// <param name="streamFactory">Creates an owned readable and writable stream for the supplied serial settings and cancellation token.</param>
+    /// <exception cref="ArgumentNullException">The stream factory is null.</exception>
+    public GXTerminal(Func<SerialPortSettings, CancellationToken, ValueTask<Stream>> streamFactory) : this(new GXSerial(streamFactory))
+    {
+    }
+
+    /// <summary>Creates terminal media and forwards the owned serial transport's data, errors and state changes.</summary>
+    /// <param name="serial">The serial transport owned by this terminal.</param>
+    GXTerminal(GXSerial serial)
+    {
+        transport = serial;
+        transport.OnReceived += (_, e) =>
         {
-            if (BaudRates.ContainsKey(portName.ToLower()))
+            if (e.Data is byte[] data)
             {
-                return BaudRates[portName.ToLower()].ToArray();
-            }
-            if (string.IsNullOrEmpty(portName))
-            {
-                portName = GXTerminal.GetPortNames()[0];
-            }
-            List<int> items = new List<int>();
-            BaudRates[portName.ToLower()] = items;
-            try
-            {
-                Int32 value = 0;
-                using (SerialPort port = new SerialPort(portName))
+                if (awaitingResponse)
                 {
-                    port.Open();
-                    FieldInfo fi = port.BaseStream.GetType().GetField("commProp", BindingFlags.Instance | BindingFlags.NonPublic);
-                    if (fi != null)
+                    foreach (byte b in data)
                     {
-                        object p = fi.GetValue(port.BaseStream);
-                        value = (Int32)p.GetType().GetField("dwSettableBaud", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetValue(p);
-                    }
-                }
-                if (value != 0)
-                {
-                    if ((value & 0x1) != 0)
-                    {
-                        items.Add(75);
-                    }
-                    if ((value & 0x2) != 0)
-                    {
-                        items.Add(110);
-                    }
-                    if ((value & 0x8) != 0)
-                    {
-                        items.Add(150);
-                    }
-                    if ((value & 0x10) != 0)
-                    {
-                        items.Add(300);
-                    }
-                    if ((value & 0x20) != 0)
-                    {
-                        items.Add(600);
-                    }
-                    if ((value & 0x40) != 0)
-                    {
-                        items.Add(1200);
-                    }
-                    if ((value & 0x80) != 0)
-                    {
-                        items.Add(1800);
-                    }
-                    if ((value & 0x100) != 0)
-                    {
-                        items.Add(2400);
-                    }
-                    if ((value & 0x200) != 0)
-                    {
-                        items.Add(4800);
-                    }
-                    if ((value & 0x400) != 0)
-                    {
-                        items.Add(7200);
-                    }
-                    if ((value & 0x800) != 0)
-                    {
-                        items.Add(9600);
-                    }
-                    if ((value & 0x1000) != 0)
-                    {
-                        items.Add(14400);
-                    }
-                    if ((value & 0x2000) != 0)
-                    {
-                        items.Add(19200);
-                    }
-                    if ((value & 0x4000) != 0)
-                    {
-                        items.Add(38400);
-                    }
-                    if ((value & 0x8000) != 0)
-                    {
-                        items.Add(56000);
-                    }
-                    if ((value & 0x40000) != 0)
-                    {
-                        items.Add(57600);
-                    }
-                    if ((value & 0x20000) != 0)
-                    {
-                        items.Add(115200);
-                    }
-                    if ((value & 0x10000) != 0)
-                    {
-                        items.Add(128000);
-                    }
-                    if ((value & 0x10000000) != 0) //Programmable baud rate.
-                    {
-                        items.Add(0);
-                    }
-                }
-            }
-            catch
-            {
-                items.Clear();
-            }
-            //Add default baud rates.
-            if (items.Count == 0)
-            {
-                items.Add(300);
-                items.Add(600);
-                items.Add(1800);
-                items.Add(2400);
-                items.Add(4800);
-                items.Add(9600);
-                items.Add(19200);
-                items.Add(38400);
-                items.Add(0); //Programmable baud rate.
-            }
-            return items.ToArray();
-        }
-
-        /// <summary>
-        /// Constructor.
-        /// </summary>
-        public GXTerminal()
-        {
-            ConfigurableSettings = AvailableMediaSettings.All;
-            m_syncBase = new GXSynchronousMediaBase(1024);
-            //Events are not currently implemented in Mono's Terminal port.
-            if (Environment.OSVersion.Platform != PlatformID.Unix)
-            {
-                m_base.DataReceived += new System.IO.Ports.SerialDataReceivedEventHandler(GXTerminal_DataReceived);
-            }
-        }
-
-        internal void NotifyError(Exception ex)
-        {
-            if (m_OnError != null)
-            {
-                m_OnError(this, ex);
-            }
-            if (trace >= TraceLevel.Error && m_OnTrace != null)
-            {
-                m_OnTrace(this, new TraceEventArgs(TraceTypes.Error, ex, null));
-            }
-        }
-
-        void NotifyMediaStateChange(MediaState state)
-        {
-            if (trace >= TraceLevel.Info && m_OnTrace != null)
-            {
-                m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, state, null));
-            }
-            if (m_OnMediaStateChange != null)
-            {
-                m_OnMediaStateChange(this, new MediaStateEventArgs(state));
-            }
-        }
-
-        /// <summary>
-        /// What level of tracing is used.
-        /// </summary>
-        public TraceLevel Trace
-        {
-            get
-            {
-                return trace;
-            }
-            set
-            {
-                trace = m_syncBase.Trace = value;
-            }
-        }
-
-        /// <summary>
-        /// Gets the underlying System.IO.Stream object for a System.IO.Ports.SerialPort object.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        [Browsable(false)]
-        public Stream BaseStream
-        {
-            get
-            {
-                lock (baseLock)
-                {
-                    return m_base.BaseStream;
-                }
-            }
-        }
-
-        private void HandleReceivedData(int index, byte[] buff, int totalCount)
-        {
-            if (totalCount != 0 && trace == TraceLevel.Verbose && m_OnTrace != null)
-            {
-                TraceEventArgs arg = new TraceEventArgs(TraceTypes.Received, m_syncBase.m_Received, index, totalCount, null);
-                m_OnTrace(this, arg);
-            }
-            lock (m_syncBase.receivedSync)
-            {
-                if (totalCount != 0 && Eop != null) //Search Eop if given.
-                {
-                    if (Eop is Array)
-                    {
-                        foreach (object eop in (Array)Eop)
+                        if (!responses.Writer.TryWrite(b))
                         {
-                            totalCount = Gurux.Common.GXCommon.IndexOf(m_syncBase.m_Received, Gurux.Common.GXCommon.GetAsByteArray(eop), index, m_syncBase.receivedSize);
-                            if (totalCount != -1)
-                            {
-                                break;
-                            }
+                            commandLifetime.Cancel();
+                            ReportError(new IOException(global::Gurux.Terminal.Properties.Resources.Get("ModemCommandResponseExceeds64KiB")));
+                            break;
                         }
                     }
-                    else
+                }
+
+                PublishReceived(data, e.SenderInfo);
+            }
+        };
+        transport.OnError += (_, e) => ReportError(e.Exception);
+        transport.OnMediaStateChange += (_, e) =>
+        {
+            if (e.State == MediaState.Closed)
+            {
+                ReceiveBuffer.Close();
+                commandLifetime.Cancel();
+            }
+
+            SetState(e.State);
+        };
+    }
+
+    /// <summary>Gets the framing and device settings used by the underlying serial connection.</summary>
+    public SerialPortSettings PortSettings => transport.PortSettings;
+    /// <summary>Gets or sets the operating system port name or platform accessory identifier.</summary>
+    public string? PortName { get => transport.PortName; set => transport.PortName = value; }
+    /// <summary>Gets or sets the requested transfer rate in bits per second.</summary>
+    public int BaudRate { get => transport.BaudRate; set => transport.BaudRate = value; }
+    /// <summary>Gets or sets the number of payload bits in each serial frame.</summary>
+    public int DataBits { get => transport.DataBits; set => transport.DataBits = value; }
+    /// <summary>Gets or sets the parity check used for each serial frame.</summary>
+    public Parity Parity { get => transport.Parity; set => transport.Parity = value; }
+    /// <summary>Gets or sets the stop interval terminating each serial frame.</summary>
+    public StopBits StopBits { get => transport.StopBits; set => transport.StopBits = value; }
+    /// <summary>Gets or sets the hardware or software flow control policy.</summary>
+    public Handshake Handshake { get => transport.Handshake; set => transport.Handshake = value; }
+    /// <summary>Gets or sets whether the data terminal ready signal is asserted.</summary>
+    public bool DtrEnable { get => transport.DtrEnable; set => transport.DtrEnable = value; }
+    /// <summary>Gets or sets whether the request to send signal is asserted.</summary>
+    public bool RtsEnable { get => transport.RtsEnable; set => transport.RtsEnable = value; }
+    /// <inheritdoc/>
+    public override string Name => transport.Name;
+    /// <inheritdoc/>
+    public override bool IsOpen => transport.IsOpen;
+
+    /// <summary>Enumerates desktop serial ports on supported operating systems.</summary>
+    /// <returns>The available port names, or an empty array on unsupported platforms.</returns>
+    public static string[] GetPortNames() => GXSerial.GetPortNames();
+    /// <inheritdoc/>
+    public override async ValueTask SendAsync(ReadOnlyMemory<byte> data, string? receiver = null, CancellationToken cancellationToken = default)
+    {
+        await transport.SendAsync(data, receiver, cancellationToken).ConfigureAwait(false);
+        AddBytesSent(data.Length);
+    }
+
+    /// <inheritdoc/>
+    public override async Task CloseAsync()
+    {
+        Task? pending;
+        lock (lifecycle)
+        {
+            commandLifetime.Cancel();
+            pending = openingDone?.Task;
+            ReceiveBuffer.Close();
+        }
+
+        await transport.CloseAsync().ConfigureAwait(false);
+        if (pending != null && !inOpening.Value)
+        {
+            await pending.ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Gets whether opening the terminal should dial the configured phone number.</summary>
+    protected virtual bool DialOnOpen => true;
+    /// <summary>Gets or sets the modem dial destination or default SMS recipient.</summary>
+    public string PhoneNumber { get; set; } = "";
+    /// <summary>Gets or sets the single line AT commands sent before dialing or SMS initialization.</summary>
+    public string[] InitializeCommands { get; set; } = ["AT", "ATE0"];
+    /// <summary>Gets or sets the maximum duration allowed for a modem command response.</summary>
+    public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    /// <inheritdoc/>
+    public override string MediaType => "Terminal";
+
+    /// <summary>Gets or replaces terminal settings using legacy serial, Number, Init and ConnectionWaitTime XML elements.</summary>
+    /// <remarks>Accepts XML fragments or a Terminal wrapper. Additional command elements preserve semicolons within
+    /// initialization commands, and ConnectTimeout preserves submillisecond precision. Null restores defaults.</remarks>
+    /// <exception cref="InvalidOperationException">The serial transport is open, opening or awaiting cleanup.</exception>
+    /// <exception cref="XmlException">The supplied XML is malformed.</exception>
+    /// <exception cref="FormatException">A numeric, timeout or Boolean setting is malformed.</exception>
+    /// <exception cref="ArgumentException">A serial framing enumeration cannot be parsed.</exception>
+    public override string? Settings
+    {
+        get
+        {
+            var xml = new XElement("Terminal",
+                new XElement("Number", PhoneNumber),
+                new XElement("Init", string.Join(";", InitializeCommands)),
+                new XElement("InitializeCommands", InitializeCommands.Select(command => new XElement("Command", command))),
+                new XElement("ConnectionWaitTime", (long)ConnectTimeout.TotalMilliseconds),
+                new XElement("ConnectTimeout", XmlConvert.ToString(ConnectTimeout)));
+            return transport.Settings + string.Concat(xml.Elements().Select(element => element.ToString(SaveOptions.DisableFormatting)));
+        }
+        set
+        {
+            var root = XElement.Parse("<Settings>" + value + "</Settings>");
+            var xml = root.Element("Terminal") ?? root.Element("SMS") ?? root;
+            string number = (string?)xml.Element("Number") ?? (string?)xml.Element("PhoneNumber") ?? string.Empty;
+            string[] initialization = xml.Element("InitializeCommands") is XElement commands
+                ? commands.Elements("Command").Select(command => command.Value).ToArray()
+                : xml.Element("Init") is XElement legacy ? legacy.Value.Split(';') : ["AT", "ATE0"];
+            TimeSpan timeout = xml.Element("ConnectTimeout") is XElement duration
+                ? XmlConvert.ToTimeSpan(duration.Value)
+                : TimeSpan.FromMilliseconds((long?)xml.Element("ConnectionWaitTime") ?? (long?)xml.Element("CommandWaitTime") ?? 30000);
+            ApplySettings(() =>
+            {
+                transport.Settings = string.Concat(xml.Elements().Select(element => element.ToString(SaveOptions.DisableFormatting)));
+                PhoneNumber = number;
+                InitializeCommands = initialization;
+                ConnectTimeout = timeout;
+            });
+        }
+    }
+
+    /// <summary>Gets or replaces JSON-serialized serial settings, initialization commands and dialing options.</summary>
+    /// <remarks>Assigning null restores the default terminal and serial settings. The serial transport must be closed with no pending open or cleanup work.</remarks>
+    /// <exception cref="InvalidOperationException">The underlying serial transport is open, opening or awaiting cleanup.</exception>
+    /// <exception cref="JsonException">The supplied terminal or nested serial settings are not valid JSON.</exception>
+    /// <exception cref="ArgumentException">The terminal or nested serial JSON value is null.</exception>
+    public override string? JsonSettings
+    {
+        get => JsonSerializer.Serialize(new TerminalSettings { Serial = transport.JsonSettings!, PhoneNumber = PhoneNumber, InitializeCommands = InitializeCommands, ConnectTimeout = ConnectTimeout }, TerminalJsonContext.Default.TerminalSettings);
+        set
+        {
+            var settings = value == null ? new TerminalSettings() : JsonSerializer.Deserialize(value, TerminalJsonContext.Default.TerminalSettings) ?? throw new ArgumentException(global::Gurux.Terminal.Properties.Resources.Get("InvalidTerminalSettings"));
+            ApplySettings(() =>
+            {
+                transport.JsonSettings = settings.Serial;
+                PhoneNumber = settings.PhoneNumber;
+                InitializeCommands = settings.InitializeCommands;
+                ConnectTimeout = settings.ConnectTimeout;
+            });
+        }
+    }
+
+    /// <summary>Applies a complete terminal or derived SMS settings snapshot while excluding connection startup.</summary>
+    /// <param name="apply">The parsed serial and derived settings assignments to execute atomically with respect to opening.</param>
+    /// <exception cref="ArgumentNullException">The assignment action is null.</exception>
+    /// <exception cref="InvalidOperationException">The terminal is open or its opening operation has started.</exception>
+    protected void ApplySettings(Action apply)
+    {
+        ArgumentNullException.ThrowIfNull(apply);
+        lock (lifecycle)
+        {
+            if (openingDone != null || IsOpen)
+            {
+                throw new InvalidOperationException(global::Gurux.Terminal.Properties.Resources.Get("CloseTheTerminalBeforeChangingSettings"));
+            }
+            apply();
+        }
+    }
+
+    /// <summary>Stores serial configuration, initialization commands and dialing options for JSON persistence.</summary>
+    public sealed class TerminalSettings
+    {
+        /// <summary>Gets or sets the JSON-serialized configuration of the underlying serial transport.</summary>
+        public string Serial { get; set; } = "{}";
+        /// <summary>Gets or sets the modem dial destination or default SMS recipient.</summary>
+        public string PhoneNumber { get; set; } = "";
+        /// <summary>Gets or sets the single line AT commands sent before dialing or SMS initialization.</summary>
+        public string[] InitializeCommands { get; set; } = ["AT", "ATE0"];
+        /// <summary>Gets or sets the maximum duration allowed for a modem command response.</summary>
+        public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    }
+
+    /// <summary>Collects serial, command, timeout and dialing errors without changing the connection.</summary>
+    /// <returns>All localized configuration errors, or an empty list when the settings are valid.</returns>
+    public override IReadOnlyList<GXValidationError> Validate()
+    {
+        var errors = new List<GXValidationError>(transport.Validate());
+        if (InitializeCommands == null || InitializeCommands.Any(command => string.IsNullOrWhiteSpace(command) || command.Contains('\r') || command.Contains('\n')))
+        {
+            errors.Add(new(nameof(InitializeCommands), "InvalidValue", global::Gurux.Terminal.Properties.Resources.Get("InitializationCommandsMustBeSingleNonemptyLines")));
+        }
+        if (ConnectTimeout <= TimeSpan.Zero)
+        {
+            errors.Add(new(nameof(ConnectTimeout), "OutOfRange", global::Gurux.Terminal.Properties.Resources.Get("CommandTimeoutMustBePositive")));
+        }
+        if (PhoneNumber.Any(c => !char.IsAsciiDigit(c) && "+*#,PWpw".IndexOf(c) < 0))
+        {
+            errors.Add(new(nameof(PhoneNumber), "InvalidValue", global::Gurux.Terminal.Properties.Resources.Get("InvalidDialNumber")));
+        }
+        return errors;
+    }
+
+    /// <summary>Checks the serial framing, initialization command lines, command timeout and dial number.</summary>
+    /// <exception cref="ArgumentException">The serial settings are invalid, an initialization command is blank or contains a line terminator, or the dial number contains an unsupported character.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The serial baud rate, data bit count or command timeout is outside its supported range.</exception>
+    protected virtual void ValidateForOpen()
+    {
+        transport.PortSettings.Validate();
+        if (InitializeCommands == null || InitializeCommands.Any(command => string.IsNullOrWhiteSpace(command) || command.Contains('\r') || command.Contains('\n')))
+        {
+            throw new ArgumentException(global::Gurux.Terminal.Properties.Resources.Get("InitializationCommandsMustBeSingleNonemptyLines"));
+        }
+
+        if (ConnectTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ConnectTimeout));
+        }
+
+        if (PhoneNumber.Any(c => !char.IsAsciiDigit(c) && "+*#,PWpw".IndexOf(c) < 0))
+        {
+            throw new ArgumentException(global::Gurux.Terminal.Properties.Resources.Get("InvalidDialNumber"));
+        }
+    }
+
+    /// <inheritdoc/>
+    public override async Task OpenAsync(CancellationToken cancellationToken = default)
+    {
+        TaskCompletionSource done;
+        lock (lifecycle)
+        {
+            if (openingDone != null)
+            {
+                throw new InvalidOperationException(global::Gurux.Terminal.Properties.Resources.Get("TerminalIsAlreadyOpening"));
+            }
+
+            if (IsOpen)
+            {
+                return;
+            }
+
+            openingDone = done = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            commandLifetime.Dispose();
+            commandLifetime = new();
+            ReceiveBuffer.Open();
+        }
+
+        bool previous = inOpening.Value;
+        inOpening.Value = true;
+        try
+        {
+            var errors = Validate();
+            if (errors.Count != 0)
+            {
+                ValidateForOpen();
+                throw new ArgumentException(errors[0].Message);
+            }
+            using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, commandLifetime.Token);
+            await transport.OpenAsync(cancel.Token).ConfigureAwait(false);
+            await InitializeAsync(cancel.Token).ConfigureAwait(false);
+        }
+        catch
+        {
+            await transport.CloseAsync().ConfigureAwait(false);
+            throw;
+        }
+        finally
+        {
+            lock (lifecycle)
+            {
+                openingDone = null;
+            }
+
+            done.TrySetResult();
+            inOpening.Value = previous;
+        }
+    }
+
+    /// <summary>Sends configured initialization commands and optionally dials the destination.</summary>
+    /// <param name="cancellationToken">Cancels the pending operation.</param>
+    /// <returns>A task completing when modem initialization finishes.</returns>
+    protected virtual async Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        foreach (string command in InitializeCommands)
+        {
+            await ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (DialOnOpen && PhoneNumber.Length != 0)
+        {
+            await ExecuteCommandAsync("ATD" + PhoneNumber, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Serializes a single AT command exchange and returns the successful modem response.</summary>
+    /// <param name="command">The single line AT command without its terminating carriage return.</param>
+    /// <param name="cancellationToken">Cancels the pending operation.</param>
+    /// <returns>The modem response including its successful terminator.</returns>
+    /// <exception cref="ArgumentException">The command is blank or contains a line terminator.</exception>
+    /// <exception cref="InvalidOperationException">The serial transport is closed.</exception>
+    /// <exception cref="IOException">The modem reports a failure or the response exceeds 64 KiB.</exception>
+    /// <exception cref="OperationCanceledException">Cancellation, a command timeout or transport shutdown interrupts the exchange.</exception>
+    public Task<string> ExecuteCommandAsync(string command, CancellationToken cancellationToken = default) => ExchangeAsync(Encoding.ASCII.GetBytes(ValidateCommand(command) + "\r"), false, cancellationToken);
+    /// <summary>Rejects blank AT commands and embedded line terminators.</summary>
+    /// <param name="command">The single line AT command without its terminating carriage return.</param>
+    /// <returns>The validated AT command unchanged.</returns>
+    /// <exception cref="ArgumentException">The command is blank or contains a line terminator.</exception>
+    static string ValidateCommand(string command)
+    {
+        if (string.IsNullOrWhiteSpace(command) || command.Contains('\r') || command.Contains('\n'))
+        {
+            throw new ArgumentException(global::Gurux.Terminal.Properties.Resources.Get("AnATCommandMustBeASingleLine"));
+        }
+
+        return command;
+    }
+
+    /// <summary>Serializes a modem exchange with an optional prompt and payload.</summary>
+    /// <param name="bytes">The complete command bytes to send to the modem.</param>
+    /// <param name="prompt">Whether to stop when the modem requests a payload with its prompt.</param>
+    /// <param name="cancellationToken">Cancels the pending operation.</param>
+    /// <returns>The successful response collected from the modem.</returns>
+    protected async Task<string> ExchangeAsync(ReadOnlyMemory<byte> bytes, bool prompt, CancellationToken cancellationToken)
+    {
+        await commands.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await ExchangeCoreAsync(bytes, prompt, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            commands.Release();
+        }
+    }
+
+    /// <summary>Writes command or payload bytes and reads until a requested prompt, successful terminator, failure or timeout.</summary>
+    /// <remarks>The caller must hold the command semaphore throughout this exchange and any related prompt payload exchange.</remarks>
+    /// <param name="bytes">The complete command bytes to send to the modem.</param>
+    /// <param name="prompt">Whether to stop when the modem requests a payload with its prompt.</param>
+    /// <param name="cancellationToken">Cancels the pending operation.</param>
+    /// <returns>The collected modem response, including its prompt or successful terminator.</returns>
+    /// <exception cref="InvalidOperationException">The serial transport is closed.</exception>
+    /// <exception cref="IOException">The modem reports a failure or the response exceeds 64 KiB.</exception>
+    /// <exception cref="OperationCanceledException">Cancellation, a command timeout or transport shutdown interrupts the exchange.</exception>
+    protected async Task<string> ExchangeCoreAsync(ReadOnlyMemory<byte> bytes, bool prompt, CancellationToken cancellationToken)
+    {
+        while (responses.Reader.TryRead(out _))
+        {
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, commandLifetime.Token);
+        timeout.CancelAfter(ConnectTimeout);
+        awaitingResponse = true;
+        try
+        {
+            await transport.SendAsync(bytes, cancellationToken: timeout.Token).ConfigureAwait(false);
+            AddBytesSent(bytes.Length);
+            var result = new StringBuilder();
+            var line = new StringBuilder();
+            while (true)
+            {
+                char c = (char)await responses.Reader.ReadAsync(timeout.Token).ConfigureAwait(false);
+                result.Append(c);
+                if (result.Length > 65536)
+                {
+                    throw new IOException(global::Gurux.Terminal.Properties.Resources.Get("ModemCommandResponseExceeds64KiB"));
+                }
+
+                if (prompt && c == '>')
+                {
+                    return result.ToString();
+                }
+
+                if (c == '\n')
+                {
+                    string response = line.ToString().Trim();
+                    line.Clear();
+                    if (response == "OK" || response.StartsWith("CONNECT", StringComparison.Ordinal))
                     {
-                        totalCount = Gurux.Common.GXCommon.IndexOf(m_syncBase.m_Received, Gurux.Common.GXCommon.GetAsByteArray(Eop), index, m_syncBase.receivedSize);
+                        return result.ToString();
                     }
-                }
-            }
-            if (this.IsSynchronous)
-            {
-                if (totalCount != -1)
-                {
-                    m_syncBase.receivedEvent.Set();
-                }
-            }
-            else if (this.m_OnReceived != null)
-            {
-                if (totalCount != -1)
-                {
-                    buff = new byte[m_syncBase.receivedSize];
-                    Array.Copy(m_syncBase.m_Received, buff, m_syncBase.receivedSize);
-                    m_syncBase.receivedSize = 0;
-                    m_OnReceived(this, new ReceiveEventArgs(buff, m_base.PortName));
+
+                    if (response is "ERROR" or "NO CARRIER" or "NO DIALTONE" or "BUSY" or "NO ANSWER" || response.StartsWith("+CME ERROR", StringComparison.Ordinal) || response.StartsWith("+CMS ERROR", StringComparison.Ordinal))
+                    {
+                        throw new IOException(string.Format(
+                            CultureInfo.CurrentCulture,
+                            global::Gurux.Terminal.Properties.Resources.Get("ModemReturnedResponse"),
+                            response));
+                    }
                 }
                 else
                 {
-                    m_OnReceived(this, new ReceiveEventArgs(buff, m_base.PortName));
+                    line.Append(c);
                 }
             }
         }
-
-        internal void GXTerminal_DataReceived(object sender, System.IO.Ports.SerialDataReceivedEventArgs e)
-        {
-            try
-            {
-                int count = 0;
-                int index = m_syncBase.receivedSize;
-                byte[] buff = null;
-                int totalCount = 0;
-                Thread.Sleep((int)ReceiveDelay);
-                while (IsOpen && (count = m_base.BytesToRead) != 0)
-                {
-                    totalCount += count;
-                    buff = new byte[count];
-                    m_base.Read(buff, 0, count);
-                    m_syncBase.AppendData(buff, 0, count);
-                    bytesReceived += (uint)count;
-                }
-                HandleReceivedData(index, buff, totalCount);
-            }
-            catch (Exception ex)
-            {
-                if (this.IsSynchronous)
-                {
-                    m_syncBase.Exception = ex;
-                    m_syncBase.receivedEvent.Set();
-                }
-                else
-                {
-                    NotifyError(ex);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Used baud rate for communication.
-        /// </summary>
-        /// <remarks>Can be changed without disconnecting.</remarks>
-        [Browsable(true)]
-        [DefaultValue(9600)]
-        [MonitoringDescription("BaudRate")]
-        public int BaudRate
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("BaudRate");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.BaudRate;
-                }
-            }
-            set
-            {
-                lock (baseLock)
-                {
-                    bool change = m_base.BaudRate != value;
-                    m_base.BaudRate = value;
-                    if (change)
-                    {
-                        NotifyPropertyChanged("BaudRate");
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// True if the port is in a break state; otherwise, false.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        [Browsable(false)]
-        public bool BreakState
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("BreakState");
-                    if (value != null)
-                    {
-                        return bool.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.BreakState;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.BreakState != value;
-                    m_base.BreakState = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("BreakState");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the number of bytes in the receive buffer.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        [Browsable(false)]
-        public int BytesToRead
-        {
-            get
-            {
-                lock (baseLock)
-                {
-                    return m_base.BytesToRead;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the number of bytes in the send buffer.
-        /// </summary>
-        [Browsable(false)]
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public int BytesToWrite
-        {
-            get
-            {
-                lock (baseLock)
-                {
-                    return m_base.BytesToWrite;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the state of the Carrier Detect line for the port.
-        /// </summary>
-        [Browsable(false)]
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool CDHolding
-        {
-            get
-            {
-                lock (baseLock)
-                {
-                    return m_base.CDHolding;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the state of the Clear-to-Send line.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        [Browsable(false)]
-        public bool CtsHolding
-        {
-            get
-            {
-                lock (baseLock)
-                {
-                    return m_base.CtsHolding;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the standard length of data bits per byte.
-        /// </summary>
-        [MonitoringDescription("DataBits")]
-        [DefaultValue(8)]
-        [Browsable(true)]
-        public int DataBits
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("DataBits");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.DataBits;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.DataBits != value;
-                    m_base.DataBits = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("DataBits");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether null bytes are ignored when transmitted between the port and the receive buffer.
-        /// </summary>
-        [Browsable(true)]
-        [DefaultValue(false)]
-        [MonitoringDescription("DiscardNull")]
-        public bool DiscardNull
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("DiscardNull");
-                    if (value != null)
-                    {
-                        return bool.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.DiscardNull;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.DiscardNull != value;
-                    m_base.DiscardNull = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("DiscardNull");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the state of the Data Set Ready (DSR) signal.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        [Browsable(false)]
-        public bool DsrHolding
-        {
-            get
-            {
-                lock (baseLock)
-                {
-                    return m_base.DsrHolding;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets a value that enables the Data Terminal Ready (DTR) signal during Terminal communication.
-        /// </summary>
-        [DefaultValue(false)]
-        [MonitoringDescription("DtrEnable")]
-        [Browsable(true)]
-        public bool DtrEnable
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("DtrEnable");
-                    if (value != null)
-                    {
-                        return bool.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.DtrEnable;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.DtrEnable != value;
-                    m_base.DtrEnable = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("DtrEnable");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the byte encoding for pre- and post-transmission conversion of text.
-        /// </summary>
-        [MonitoringDescription("Encoding")]
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        [Browsable(false)]
-        public Encoding Encoding
-        {
-            get
-            {
-                lock (baseLock)
-                {
-                    return m_base.Encoding;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.Encoding != value;
-                    m_base.Encoding = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("Encoding");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the handshaking protocol for Terminal port transmission of data.
-        /// </summary>
-        [Browsable(true)]
-        [MonitoringDescription("Handshake")]
-        public Handshake Handshake
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("Handshake");
-                    if (value != null)
-                    {
-                        return (Handshake)int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.Handshake;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.Handshake != value;
-                    m_base.Handshake = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("Handshake");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets a value indicating the open or closed status of the System.IO.Ports.SerialPort object.
-        /// </summary>
-        [Browsable(false)]
-        public bool IsOpen
-        {
-            get
-            {
-                lock (baseLock)
-                {
-                    return m_base.IsOpen;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the parity-checking protocol.
-        /// </summary>
-        [Browsable(true)]
-        [MonitoringDescription("Parity")]
-        public Parity Parity
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("Parity");
-                    if (value != null)
-                    {
-                        return (Parity)int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.Parity;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.Parity != value;
-                    m_base.Parity = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("Parity");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the byte that replaces invalid bytes in a data stream when a parity error occurs.
-        /// </summary>
-        [Browsable(true)]
-        [MonitoringDescription("ParityReplace")]
-        [DefaultValue(63)]
-        public byte ParityReplace
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("ParityReplace");
-                    if (value != null)
-                    {
-                        return byte.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.ParityReplace;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.ParityReplace != value;
-                    m_base.ParityReplace = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("ParityReplace");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the phone number.
-        /// </summary>
-        public string PhoneNumber
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("PhoneNumber");
-                    if (value != null)
-                    {
-                        return value;
-                    }
-                }
-                lock (baseLock)
-                {
-                    return phoneNumber;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = phoneNumber != value;
-                    phoneNumber = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("PhoneNumber");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets how long (ms.) modem answer is waited when connection is made.
-        /// </summary>
-        public int ConnectionWaitTime
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("ConnectionWaitTime");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return connectionWaitTime;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = connectionWaitTime != value;
-                    connectionWaitTime = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("ConnectionWaitTime");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get or set how long (ms) modem answer is waited when command is send for the modem.
-        /// </summary>
-        public int CommandWaitTime
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("CommandWaitTime");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return commandWaitTime;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = commandWaitTime != value;
-                    commandWaitTime = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("CommandWaitTime");
-                }
-            }
-        }
-
-
-        /// <summary>
-        /// Server sunctionality is added later.
-        /// </summary>
-        [DefaultValue(false)]
-        [Browsable(true)]
-        internal bool Server
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("Server");
-                    if (value != null)
-                    {
-                        return bool.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return server;
-                }
-            }
-            set
-            {
-                bool change = server != value;
-                if (change)
-                {
-                    server = value;
-                    NotifyPropertyChanged("Server");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the port for communications, including but not limited to all available COM ports.
-        /// </summary>
-        [MonitoringDescription("PortName")]
-        [Browsable(true)]
-        [DefaultValue("COM1")]
-        public string PortName
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("PortName");
-                    if (value != null)
-                    {
-                        return value;
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.PortName;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.PortName != value;
-                    m_base.PortName = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("PortName");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the size of the System.IO.Ports.SerialPort input buffer.
-        /// </summary>
-        [DefaultValue(4096)]
-        [MonitoringDescription("ReadBufferSize")]
-        [Browsable(true)]
-        public int ReadBufferSize
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("ReadBufferSize");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.ReadBufferSize;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.ReadBufferSize != value;
-                    m_base.ReadBufferSize = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("ReadBufferSize");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the number of milliseconds before a time-out occurs when a read operation does not finish.
-        /// </summary>
-        [MonitoringDescription("ReadTimeout")]
-        [Browsable(true)]
-        [DefaultValue(-1)]
-        public int ReadTimeout
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("ReadTimeout");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.ReadTimeout;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.ReadTimeout != value;
-                    m_base.ReadTimeout = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("ReadTimeout");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the number of bytes in the internal input buffer before a System.IO.Ports.SerialPort.DataReceived event occurs.
-        /// </summary>
-        [MonitoringDescription("ReceivedBytesThreshold")]
-        [DefaultValue(1)]
-        [Browsable(true)]
-        public int ReceivedBytesThreshold
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("ReceivedBytesThreshold");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.ReceivedBytesThreshold;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.ReceivedBytesThreshold != value;
-                    m_base.ReceivedBytesThreshold = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("ReceivedBytesThreshold");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the Request to Send (RTS) signal is enabled during Terminal communication.
-        /// </summary>
-        [MonitoringDescription("RtsEnable")]
-        [DefaultValue(false)]
-        [Browsable(true)]
-        public bool RtsEnable
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("RtsEnable");
-                    if (value != null)
-                    {
-                        return bool.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.RtsEnable;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.RtsEnable != value;
-                    m_base.RtsEnable = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("RtsEnable");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the standard number of stopbits per byte.
-        /// </summary>
-        [MonitoringDescription("StopBits")]
-        [Browsable(true)]
-        public StopBits StopBits
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("StopBits");
-                    if (value != null)
-                    {
-                        return (StopBits)int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.StopBits;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.StopBits != value;
-                    m_base.StopBits = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("StopBits");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the size of the Terminal port output buffer.
-        /// </summary>
-        [Browsable(true)]
-        [DefaultValue(2048)]
-        [MonitoringDescription("WriteBufferSize")]
-        public int WriteBufferSize
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("WriteBufferSize");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.WriteBufferSize;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.WriteBufferSize != value;
-                    m_base.WriteBufferSize = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("WriteBufferSize");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the number of milliseconds before a time-out occurs when a write operation does not finish.
-        /// </summary>
-        [MonitoringDescription("WriteTimeout")]
-        [Browsable(true)]
-        [DefaultValue(-1)]
-        public int WriteTimeout
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("WriteTimeout");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return m_base.WriteTimeout;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = m_base.WriteTimeout != value;
-                    m_base.WriteTimeout = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("WriteTimeout");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get or set how long (ms) is waited before hang up is called.
-        /// </summary>
-        public int HangsUpDelay
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("HangsUpDelay");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                lock (baseLock)
-                {
-                    return hangsUpDelay;
-                }
-            }
-            set
-            {
-                bool change;
-                lock (baseLock)
-                {
-                    change = hangsUpDelay != value;
-                    hangsUpDelay = value;
-                }
-                if (change)
-                {
-                    NotifyPropertyChanged("HangsUpDelay");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Closes the port connection, sets the System.IO.Ports.SerialPort.IsOpen property to false, and disposes of the internal System.IO.Stream object.
-        /// </summary>
-        public void Close()
-        {
-            bool bOpen = VirtualOpen;
-            if (!IsVirtual)
-            {
-                lock (baseLock)
-                {
-                    bOpen = m_base.IsOpen;
-                }
-            }
-            if (bOpen)
-            {
-                m_syncBase.Close();
-                try
-                {
-                    NotifyMediaStateChange(MediaState.Closing);
-                }
-                catch (Exception ex)
-                {
-                    NotifyError(ex);
-                    throw;
-                }
-                finally
-                {
-                    try
-                    {
-                        if (!IsVirtual)
-                        {
-                            //
-                            if (progress != Progress.None)
-                            {
-                                try
-                                {
-                                    //Send AT
-                                    lock (Synchronous)
-                                    {
-                                        if (progress == Progress.Connected)
-                                        {
-                                            //We are not expecting reply.
-                                            Thread.Sleep(1000);
-                                            Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
-                                            {
-                                                WaitTime = connectionWaitTime,
-                                                Count = 3
-                                            };
-                                            SendBytes(ASCIIEncoding.ASCII.GetBytes("+++"));
-                                            //It's OK if this fails.
-                                            Receive(p);
-                                            Thread.Sleep(HangsUpDelay);
-                                            SendCommand("ATH0\r", connectionWaitTime, null, false);
-                                        }
-                                    }
-                                }
-                                finally
-                                {
-                                    progress = Progress.None;
-                                }
-                            }
-                            if (receiver != null)
-                            {
-                                receiver.Closing.Set();
-                            }
-                            lock (baseLock)
-                            {
-                                m_base.Close();
-                            }
-                            if (receiverThread != null && receiverThread.IsAlive)
-                            {
-                                receiverThread.Join();
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        //Ignore all errors on close.
-                    }
-                    VirtualOpen = false;
-                    NotifyMediaStateChange(MediaState.Closed);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Discards data from the Terminal driver's receive buffer.
-        /// </summary>
-        public void DiscardInBuffer()
-        {
-            lock (baseLock)
-            {
-                m_base.DiscardInBuffer();
-            }
-        }
-
-        /// <summary>
-        /// Discards data from the Terminal driver's transmit buffer.
-        /// </summary>
-        public void DiscardOutBuffer()
-        {
-            lock (baseLock)
-            {
-                m_base.DiscardOutBuffer();
-            }
-        }
-
-        /// <summary>
-        /// Gets an array of Terminal port names for the current computer.
-        /// </summary>
-        /// <returns></returns>
-        public static string[] GetPortNames()
-        {
-            return System.IO.Ports.SerialPort.GetPortNames();
-        }
-
-        /// <summary>
-        /// User defined available ports.
-        /// </summary>
-        /// <remarks>If this is not set ports are retrieved from current system.</remarks>
-        public string[] AvailablePorts
-        {
-            get;
-            set;
-        }
-
-        /// <summary>
-        /// Opens a new Terminal port connection.
-        /// </summary>
-        /// <remarks>
-        /// If connection is succeeded but Modem data is not move try to set following:
-        /// DTE/Modem flow control
-        /// AT&amp;K0  Disable flow control.
-        /// AT&amp;Q0  Direct Asynchronous mode
-        /// </remarks>
-        public void Open()
-        {
-            Close();
-            try
-            {
-                m_syncBase.Open();
-                NotifyMediaStateChange(MediaState.Opening);
-                if (trace >= TraceLevel.Info && m_OnTrace != null)
-                {
-                    string eop = Resources.None;
-                    if (m_Eop is byte[])
-                    {
-                        eop = BitConverter.ToString(m_Eop as byte[], 0);
-                    }
-                    else if (m_Eop != null)
-                    {
-                        eop = m_Eop.ToString();
-                    }
-                    string str = string.Format("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11} {12} ",
-                        Resources.Settings,
-                        Resources.Port,
-                        m_base.PortName,
-                        Resources.BaudRate,
-                        m_base.BaudRate,
-                        Resources.DataBits,
-                        m_base.DataBits,
-                        Resources.Parity,
-                        m_base.Parity,
-                        Resources.StopBits,
-                        m_base.StopBits,
-                        Resources.Eop,
-                        eop);
-                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Info, str, null));
-                }
-                lock (baseLock)
-                {
-                    m_base.Open();
-                }
-                //Events are not currently implemented in Mono's Terminal port.
-                if (!IsVirtual && Environment.OSVersion.Platform == PlatformID.Unix)
-                {
-                    receiver = new ReceiveThread(this);
-                    receiverThread = new Thread(new ThreadStart(receiver.Receive));
-                    receiverThread.IsBackground = true;
-                    receiverThread.Start();
-                }
-                try
-                {
-                    this.DtrEnable = this.RtsEnable = true;
-                    //Send AT
-                    lock (Synchronous)
-                    {
-                        if (InitializeCommands != null)
-                        {
-                            foreach (string it in InitializeCommands)
-                            {
-                                SendCommand(it + "\r\n", commandWaitTime, null, true);
-                            }
-                        }
-                        string reply;
-                        if (this.Server)
-                        {
-                            if (string.Compare(SendCommand("AT\r\n", commandWaitTime, null, false), "OK", true) != 0)
-                            {
-                                reply = SendCommand("AT\r\n", commandWaitTime, null, true);
-                                if (string.Compare(reply, "AT\r\r\n", true) != 0)
-                                {
-                                    throw new Exception(Resources.InvalidReply);
-                                }
-                            }
-                            reply = SendCommand("ATA\r\n", commandWaitTime, null, true);
-                            if (string.Compare(reply, "ATA", true) != 0)
-                            {
-                                throw new Exception(Resources.InvalidReply);
-                            }
-                            progress = Progress.Connecting;
-                        }
-                        else
-                        {
-                            //Send AT
-                            if (string.Compare(SendCommand("AT\r", commandWaitTime, null, false), "OK", true) != 0)
-                            {
-                                reply = SendCommand("AT\r", commandWaitTime, null, true);
-                                if (string.Compare(reply, "OK", true) != 0)
-                                {
-                                    throw new Exception(Resources.InvalidReply);
-                                }
-                            }
-                            progress = Progress.Connecting;
-                            reply = SendCommand("ATD" + PhoneNumber + "\r\n", connectionWaitTime, null, true);
-                            progress = Progress.Connected;
-                        }
-                    }
-                }
-                catch (Exception)
-                {
-                    Close();
-                    throw;
-                }
-                NotifyMediaStateChange(MediaState.Open);
-            }
-            catch
-            {
-                Close();
-                throw;
-            }
-        }
-
-        void SendBytes(byte[] value)
-        {
-            lock (baseLock)
-            {
-                if (trace == TraceLevel.Verbose && m_OnTrace != null)
-                {
-                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value, null));
-                }
-                bytesSent += (uint)value.Length;
-                //Reset last position if Eop is used.
-                lock (m_syncBase.receivedSync)
-                {
-                    m_syncBase.lastPosition = 0;
-                }
-                m_base.Write(value, 0, value.Length);
-            }
-        }
-
-        string SendCommand(string cmd, int wt, string eop, bool throwError)
-        {
-            Gurux.Common.ReceiveParameters<string> p = new Gurux.Common.ReceiveParameters<string>()
-            {
-                WaitTime = wt,
-                Eop = eop == null ? "\r\n" : eop
-            };
-            if (p.Eop.Equals(""))
-            {
-                p.Eop = null;
-                p.Count = cmd.Length;
-            }
-            SendBytes(ASCIIEncoding.ASCII.GetBytes(cmd));
-            StringBuilder sb = new StringBuilder();
-            int index = -1;
-            string reply = "";
-            while (index == -1)
-            {
-                if (!Receive(p))
-                {
-                    if (throwError)
-                    {
-                        throw new Exception(Resources.FailedToReceiveAnswerFromTheModemCheckSerialPort);
-                    }
-                    return "";
-                }
-                sb.Append(p.Reply);
-                reply = sb.ToString();
-                //Remove echo.
-                if (sb.Length >= cmd.Length && reply.StartsWith(cmd))
-                {
-                    sb.Remove(0, cmd.Length);
-                    reply = sb.ToString();
-                    //Remove echo and return if we are not expecting reply.
-                    if (eop == "")
-                    {
-                        return "";
-                    }
-                }
-                if (eop != null)
-                {
-                    index = reply.LastIndexOf(eop);
-                }
-                else if (reply.Length > 5)
-                {
-                    index = reply.LastIndexOf("\r\nOK\r\n");
-                    if (index == -1)
-                    {
-                        index = reply.LastIndexOf("ERROR:");
-                        if (index == -1)
-                        {
-                            index = reply.LastIndexOf("CONNECT");
-                            if (index == -1)
-                            {
-                                index = reply.LastIndexOf("NO CARRIER");
-                                if (index != -1)
-                                {
-                                    string str = Resources.ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished;
-                                    int start = reply.IndexOf("CAUSE:");
-                                    if (start != -1)
-                                    {
-                                        if (start < index)
-                                        {
-                                            str += reply.Substring(start, index - start).Trim();
-                                        }
-                                        else
-                                        {
-                                            str += reply.Substring(start).Trim();
-                                        }
-                                    }
-                                    str += Environment.NewLine + SendCommand("AT+CEER\r", wt, null, false);
-                                    throw new Exception(str);
-                                }
-                                if (reply.LastIndexOf("ERROR") != -1)
-                                {
-                                    throw new Exception(Resources.ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished);
-                                }
-                                if (reply.LastIndexOf("BUSY") != -1)
-                                {
-                                    throw new Exception(Resources.ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished);
-                                }
-                            }
-                        }
-                    }
-                    //If there is a message before OK show it.
-                    else if (index != 0)
-                    {
-                        reply = reply.Remove(index);
-                        index = 0;
-                    }
-                }
-                p.Reply = null;
-            }
-            if (index != 0 & eop == null)
-            {
-                reply = reply.Remove(0, index);
-            }
-            reply = reply.Trim();
-            return reply;
-        }
-
-        #region Events
-        /// <summary>
-        /// GXNet component sends received data through this method.
-        /// </summary>
-        [Description("GXNet component sends received data through this method.")]
-        public event ReceivedEventHandler OnReceived
-        {
-            add
-            {
-                m_OnReceived += value;
-            }
-            remove
-            {
-                m_OnReceived -= value;
-            }
-        }
-
-        /// <summary>
-        /// Errors that occur after the connection is established, are sent through this method.
-        /// </summary>
-        [Description("Errors that occur after the connection is established, are sent through this method.")]
-        public event Gurux.Common.ErrorEventHandler OnError
-        {
-            add
-            {
-
-                m_OnError += value;
-            }
-            remove
-            {
-                m_OnError -= value;
-            }
-        }
-
-        /// <summary>
-        /// Media component sends notification, when its state changes.
-        /// </summary>
-        [Description("Media component sends notification, when its state changes.")]
-        public event MediaStateChangeEventHandler OnMediaStateChange
-        {
-            add
-            {
-                m_OnMediaStateChange += value;
-            }
-            remove
-            {
-                m_OnMediaStateChange -= value;
-            }
-        }
-
-        /// <summary>
-        /// Called when the client is establishing a connection with a Net Server.
-        /// </summary>
-        [Description("Called when the client is establishing a connection with a Net Server.")]
-        public event ClientConnectedEventHandler OnClientConnected
-        {
-            add
-            {
-                m_OnClientConnected += value;
-            }
-            remove
-            {
-                m_OnClientConnected -= value;
-            }
-        }
-
-        /// <summary>
-        /// Called when the client has been disconnected from the network server.
-        /// </summary>
-        [Description("Called when the client has been disconnected from the network server.")]
-        public event ClientDisconnectedEventHandler OnClientDisconnected
-        {
-            add
-            {
-                m_OnClientDisconnected += value;
-            }
-            remove
-            {
-                m_OnClientDisconnected -= value;
-            }
-        }
-
-        /// <summary>
-        /// Occurs when a property value changes.
-        /// </summary>
-        event PropertyChangedEventHandler INotifyPropertyChanged.PropertyChanged
-        {
-            add
-            {
-                m_OnPropertyChanged += value;
-            }
-            remove
-            {
-                m_OnPropertyChanged -= value;
-            }
-        }
-
-        /// <inheritdoc cref="TraceEventHandler"/>
-        [Description("Called when the Media is sending or receiving data.")]
-        public event TraceEventHandler OnTrace
-        {
-            add
-            {
-                m_OnTrace += value;
-            }
-            remove
-            {
-                m_OnTrace -= value;
-            }
-        }
-
-        private void NotifyPropertyChanged(String info)
-        {
-            if (m_OnPropertyChanged != null)
-            {
-                m_OnPropertyChanged(this, new PropertyChangedEventArgs(info));
-            }
-        }
-
-
-        //Events
-        TraceEventHandler m_OnTrace;
-        PropertyChangedEventHandler m_OnPropertyChanged;
-        MediaStateChangeEventHandler m_OnMediaStateChange;
-        ClientConnectedEventHandler m_OnClientConnected;
-        ClientDisconnectedEventHandler m_OnClientDisconnected;
-        internal Gurux.Common.ErrorEventHandler m_OnError;
-        ReceivedEventHandler m_OnReceived;
-        GetPropertyValueEventHandler m_OnGetPropertyValue;
-        ReceivedEventHandler m_OnDataSend;
-
-        #endregion //Events
-
-        /// <inheritdoc cref="IGXMedia.ConfigurableSettings"/>
-        public AvailableMediaSettings ConfigurableSettings
-        {
-            get
-            {
-                return (Gurux.Terminal.AvailableMediaSettings)((IGXMedia)this).ConfigurableSettings;
-            }
-            set
-            {
-                ((IGXMedia)this).ConfigurableSettings = (int)value;
-            }
-        }
-
-        /// <inheritdoc cref="IGXMedia.Tag"/>
-        public object Tag
-        {
-            get;
-            set;
-        }
-
-        /// <inheritdoc cref="IGXMedia.MediaContainer"/>
-        IGXMediaContainer IGXMedia.MediaContainer
-        {
-            get;
-            set;
-        }
-
-        /// <inheritdoc cref="IGXMedia.SyncRoot"/>
-        [Browsable(false), ReadOnly(true)]
-        public object SyncRoot
-        {
-            get
-            {
-                //In some special cases when binary serialization is used this might be null
-                //after deserialize. Just set it.
-                if (m_sync == null)
-                {
-                    m_sync = new object();
-                }
-                return m_sync;
-            }
-        }
-
-        /// <inheritdoc cref="IGXVirtualMedia.Virtual"/>
-        bool IGXVirtualMedia.Virtual
-        {
-            get
-            {
-                return IsVirtual;
-            }
-            set
-            {
-                IsVirtual = value;
-            }
-        }
-
-        /// <summary>
-        /// Occurs when a property value is asked.
-        /// </summary>
-        event GetPropertyValueEventHandler IGXVirtualMedia.OnGetPropertyValue
-        {
-            add
-            {
-                m_OnGetPropertyValue += value;
-            }
-            remove
-            {
-                m_OnGetPropertyValue -= value;
-            }
-        }
-
-        /// <summary>
-        /// Occurs when data is sent on virtual mode.
-        /// </summary>
-        event ReceivedEventHandler IGXVirtualMedia.OnDataSend
-        {
-            add
-            {
-                m_OnDataSend += value;
-            }
-            remove
-            {
-                m_OnDataSend -= value;
-            }
-        }
-
-        /// <summary>
-        /// Called when new data is received to the virtual media.
-        /// </summary>
-        /// <param name="data">received data</param>
-        /// <param name="sender">Data sender.</param>
-        void IGXVirtualMedia.DataReceived(byte[] data, string sender)
-        {
-            int index = m_syncBase.receivedSize;
-            m_syncBase.AppendData(data, 0, data.Length);
-            bytesReceived += (uint)data.Length;
-            HandleReceivedData(index, data, data.Length);
-        }
-
-
-        /// <inheritdoc cref="IGXMedia.Synchronous"/>
-        public object Synchronous
-        {
-            get
-            {
-                return synchronous;
-            }
-        }
-
-        /// <inheritdoc cref="IGXMedia.IsSynchronous"/>
-        public bool IsSynchronous
-        {
-            get
-            {
-                bool reserved = System.Threading.Monitor.TryEnter(synchronous, 0);
-                if (reserved)
-                {
-                    System.Threading.Monitor.Exit(synchronous);
-                }
-                return !reserved;
-            }
-        }
-
-        /// <inheritdoc cref="IGXMedia.ResetSynchronousBuffer"/>
-        public void ResetSynchronousBuffer()
-        {
-            lock (m_syncBase.receivedSync)
-            {
-                m_syncBase.receivedSize = 0;
-            }
-        }
-
-        #region IGXMedia Members
-
-        /// <summary>
-        /// Sent byte count.
-        /// </summary>
-        /// <seealso cref="BytesReceived">BytesReceived</seealso>
-        /// <seealso cref="ResetByteCounters">ResetByteCounters</seealso>
-        [Browsable(false)]
-        public UInt64 BytesSent
-        {
-            get
-            {
-                return bytesSent;
-            }
-        }
-
-        /// <summary>
-        /// Received byte count.
-        /// </summary>
-        /// <seealso cref="BytesSent">BytesSent</seealso>
-        /// <seealso cref="ResetByteCounters">ResetByteCounters</seealso>
-        [Browsable(false)]
-        public UInt64 BytesReceived
-        {
-            get
-            {
-                return bytesReceived;
-            }
-        }
-
-        /// <summary>
-        /// Resets BytesReceived and BytesSent counters.
-        /// </summary>
-        /// <seealso cref="BytesSent">BytesSent</seealso>
-        /// <seealso cref="BytesReceived">BytesReceived</seealso>
-        public void ResetByteCounters()
-        {
-            bytesSent = bytesReceived = 0;
-        }
-
-        void Gurux.Common.IGXMedia.Copy(object target)
-        {
-            GXTerminal Target = (GXTerminal)target;
-            m_base.BaudRate = Target.m_base.BaudRate;
-            m_base.StopBits = Target.m_base.StopBits;
-            m_base.Parity = Target.m_base.Parity;
-            m_base.DataBits = Target.m_base.DataBits;
-        }
-
-        /// <inheritdoc cref="IGXMedia.Eop"/>
-        public object Eop
-        {
-            get
-            {
-                if (IsVirtual && m_OnGetPropertyValue != null)
-                {
-                    string value = m_OnGetPropertyValue("Eop");
-                    if (value != null)
-                    {
-                        return int.Parse(value);
-                    }
-                }
-                return m_Eop;
-            }
-            set
-            {
-                bool change = m_Eop != value;
-                m_Eop = value;
-                if (change)
-                {
-                    NotifyPropertyChanged("Eop");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Modem initial settings.
-        /// </summary>
-        string[] InitializeCommands
-        {
-            get;
-            set;
-        }
-
-        /// <summary>
-        /// Media settings as a XML string.
-        /// </summary>
-        public string Settings
-        {
-            get
-            {
-                string tmp = "";
-                if (!string.IsNullOrEmpty(phoneNumber))
-                {
-                    tmp += "<Number>" + phoneNumber + "</Number>";
-                }
-                if (Server)
-                {
-                    tmp += "<Server>1</Server>";
-                }
-                if (!string.IsNullOrEmpty(m_base.PortName))
-                {
-                    tmp += "<Port>" + m_base.PortName + "</Port>";
-                }
-                if (m_base.BaudRate != 9600)
-                {
-                    tmp += "<Bps>" + m_base.BaudRate + "</Bps>";
-                }
-                if (m_base.StopBits != System.IO.Ports.StopBits.None)
-                {
-                    tmp += "<StopBits>" + (int)m_base.StopBits + "</StopBits>";
-                }
-                if (m_base.Parity != System.IO.Ports.Parity.None)
-                {
-                    tmp += "<Parity>" + (int)m_base.Parity + "</Parity>";
-                }
-                if (m_base.DataBits != 8)
-                {
-                    tmp += "<ByteSize>" + m_base.DataBits + "</ByteSize>";
-                }
-                if (this.InitializeCommands != null)
-                {
-                    tmp += "<Init>" + string.Join(";", InitializeCommands) + "</Init>";
-                }
-                if (this.ConnectionWaitTime != 30000)
-                {
-                    tmp += "<ConnectionWaitTime>" + ConnectionWaitTime + "</ConnectionWaitTime>";
-                }
-                if (this.CommandWaitTime != 3000)
-                {
-                    tmp += "<CommandWaitTime>" + CommandWaitTime + "</CommandWaitTime>";
-                }
-                if (this.HangsUpDelay != 0)
-                {
-                    tmp += "<HangsUpDelay>" + HangsUpDelay + "</HangsUpDelay>";
-                }
-                return tmp;
-            }
-            set
-            {
-                if (!string.IsNullOrEmpty(value))
-                {
-                    XmlReaderSettings settings = new XmlReaderSettings();
-                    settings.ConformanceLevel = ConformanceLevel.Fragment;
-                    string str;
-                    int result;
-
-                    ConnectionWaitTime = 30000;
-                    CommandWaitTime = 3000;
-                    HangsUpDelay = 0;
-                    using (XmlReader xmlReader = XmlReader.Create(new System.IO.StringReader(value), settings))
-                    {
-                        while (xmlReader.Read())
-                        {
-                            if (xmlReader.IsStartElement())
-                            {
-                                switch (xmlReader.Name)
-                                {
-                                    case "Init":
-                                        InitializeCommands = xmlReader.ReadString().Split(new char[] { ';' });
-                                        break;
-                                    case "Number":
-                                        phoneNumber = xmlReader.ReadString();
-                                        break;
-                                    case "Server":
-                                        server = Convert.ToInt32(xmlReader.ReadString()) != 0;
-                                        break;
-                                    case "Port":
-                                        m_base.PortName = xmlReader.ReadString();
-                                        break;
-                                    case "Bps":
-                                        m_base.BaudRate = Convert.ToInt32(xmlReader.ReadString());
-                                        break;
-                                    case "StopBits":
-                                        str = xmlReader.ReadString();
-                                        if (int.TryParse(str, out result))
-                                        {
-                                            m_base.StopBits = (StopBits)result;
-                                        }
-                                        else
-                                        {
-                                            m_base.StopBits = (StopBits)Enum.Parse(typeof(StopBits), str);
-                                        }
-
-                                        break;
-                                    case "Parity":
-                                        str = xmlReader.ReadString();
-                                        if (int.TryParse(str, out result))
-                                        {
-                                            m_base.Parity = (Parity)result;
-                                        }
-                                        else
-                                        {
-                                            m_base.Parity = (Parity)Enum.Parse(typeof(System.IO.Ports.Parity), str);
-                                        }
-                                        break;
-                                    case "ByteSize":
-                                        m_base.DataBits = Convert.ToInt32(xmlReader.ReadString());
-                                        break;
-                                    case "ConnectionWaitTime":
-                                        ConnectionWaitTime = Convert.ToInt32(xmlReader.ReadString());
-                                        break;
-                                    case "CommandWaitTime":
-                                        CommandWaitTime = Convert.ToInt32(xmlReader.ReadString());
-                                        break;
-                                    case "HangsUpDelay":
-                                        HangsUpDelay = Convert.ToInt32(xmlReader.ReadString());
-                                        break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Current terminal settings as a string.
-        /// </summary>
-        /// <returns></returns>
-        public override string ToString()
-        {
-            StringBuilder sb = new StringBuilder();
-            sb.Append(PortName);
-            sb.Append(' ');
-            sb.Append(BaudRate);
-            sb.Append(' ');
-            sb.Append(DataBits);
-            sb.Append(Parity);
-            sb.Append((int)StopBits);
-            sb.Append(" Number:");
-            sb.Append(phoneNumber);
-            sb.Append(" Server:");
-            sb.Append(server);
-            return sb.ToString();
-        }
-
-        /// <inheritdoc />
-        string Gurux.Common.IGXMedia.MediaType
-        {
-            get
-            {
-                return "Terminal";
-            }
-        }
-
-        /// <inheritdoc />
-        bool Gurux.Common.IGXMedia.Enabled
-        {
-            get
-            {
-                return GetPortNames().Length != 0;
-            }
-        }
-
-        /// <inheritdoc />
-        string Gurux.Common.IGXMedia.Name
-        {
-            get
-            {
-                return m_base.PortName;
-            }
-        }
-
-        /// <summary>
-        /// Sends data asynchronously. <br/>
-        /// No reply from the receiver, whether or not the operation was successful, is expected.
-        /// </summary>
-        public void Send(object data)
-        {
-            ((Gurux.Common.IGXMedia)this).Send(data, null);
-        }
-#if NET462_OR_GREATER || WINDOWS
-        /// <summary>
-        /// Shows the terminal port Properties dialog.
-        /// </summary>
-        /// <param name="parent">Owner window of the Properties dialog.</param>
-        /// <returns>True, if the user has accepted the changes.</returns>
-        /// <seealso cref="PortName">PortName</seealso>
-        /// <seealso cref="BaudRate">BaudRate</seealso>
-        /// <seealso cref="DataBits">DataBits</seealso>
-        /// <seealso href="PropertiesDialog.html">Properties Dialog</seealso>
-        public bool Properties(System.Windows.Forms.Form parent)
-        {
-            return new Gurux.Shared.PropertiesForm(PropertiesForm, Resources.SettingsTxt, IsOpen, 
-            Resources.OK, Resources.Cancel, 
-            "https://www.gurux.fi/GXTerminalProperties").ShowDialog(parent) == System.Windows.Forms.DialogResult.OK;
-        }
-
-        /// <summary>
-        /// Returns a new instance of the Settings form.
-        /// </summary>
-        public System.Windows.Forms.Form PropertiesForm
+        catch (OperationCanceledException)
         {
-            get
-            {
-                return new Settings(this);
-            }
-        }
-#endif //NET462_OR_GREATER || WINDOWS
-
-        /// <inheritdoc />
-        public bool Receive<T>(Gurux.Common.ReceiveParameters<T> args)
-        {
-            if (!IsOpen)
-            {
-                throw new InvalidOperationException("Media is closed.");
-            }
-            return m_syncBase.Receive(args);
-        }
-
-        /// <inheritdoc />
-        void Gurux.Common.IGXMedia.Send(object data, string receiver)
-        {
-            byte[] value = Gurux.Common.GXCommon.GetAsByteArray(data);
-            lock (baseLock)
-            {
-                if (trace == TraceLevel.Verbose && m_OnTrace != null)
-                {
-                    m_OnTrace(this, new TraceEventArgs(TraceTypes.Sent, value, receiver));
-                }
-                bytesSent += (uint)value.Length;
-                //Reset last position if Eop is used.
-                lock (m_syncBase.receivedSync)
-                {
-                    m_syncBase.lastPosition = 0;
-                }
-                if (!IsVirtual)
-                {
-                    m_base.Write(value, 0, value.Length);
-                }
-                else
-                {
-                    m_OnDataSend(this, new ReceiveEventArgs(data, receiver));
-                }
-            }
-        }
-
-        /// <inheritdoc cref="IGXMedia.Validate"/>
-        public void Validate()
-        {
-
-        }
-
-        /// <inheritdoc />
-        int Gurux.Common.IGXMedia.ConfigurableSettings
-        {
-            get;
-            set;
-        }
-
-        /// <inheritdoc />
-        uint IGXMedia2.AsyncWaitTime
-        {
-            get;
-            set;
+            await transport.CloseAsync().ConfigureAwait(false);
+            throw;
         }
-
-        /// <inheritdoc />
-        EventWaitHandle IGXMedia2.AsyncWaitHandle
+        finally
         {
-            get
-            {
-                return null;
-            }
+            awaitingResponse = false;
         }
+    }
 
-        public uint ReceiveDelay
+    /// <summary>Atomically sends a prompt command followed by its data (for AT+CMGS).</summary>
+    /// <param name="command">The single line AT command without its terminating carriage return.</param>
+    /// <param name="payload">The encoded message bytes sent after the modem prompt.</param>
+    /// <param name="cancellationToken">Cancels the pending operation.</param>
+    /// <returns>The successful modem response after the prompt payload is submitted.</returns>
+    protected async Task<string> ExecutePromptAsync(string command, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
+    {
+        await commands.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            get;
-            set;
+            await ExchangeCoreAsync(Encoding.ASCII.GetBytes(ValidateCommand(command) + "\r"), true, cancellationToken).ConfigureAwait(false);
+            return await ExchangeCoreAsync(payload, false, cancellationToken).ConfigureAwait(false);
         }
-
-        #endregion
-
-        #region IDisposable Members
-
-        /// <summary>
-        /// Closes the connection.
-        /// </summary>
-        public void Dispose()
+        finally
         {
-            if (this.IsOpen)
-            {
-                Close();
-            }
+            commands.Release();
         }
-
-        #endregion
     }
 }
