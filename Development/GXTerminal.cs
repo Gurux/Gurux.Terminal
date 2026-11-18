@@ -64,21 +64,21 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <param name="info">The connection description supplied to event handlers.</param>
     protected void NotifyClientDisconnected(string info) => OnClientDisconnected?.Invoke(this, new ConnectionEventArgs(info));
     /// <summary>Serializes modem command exchanges so their responses cannot overlap.</summary>
-    readonly SemaphoreSlim commands = new(1, 1);
+    readonly SemaphoreSlim _commands = new(1, 1);
     /// <summary>Buffers modem response bytes for the currently active command exchange.</summary>
-    readonly Channel<byte> responses = Channel.CreateBounded<byte>(new BoundedChannelOptions(65536) { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
+    readonly Channel<byte> _responses = Channel.CreateBounded<byte>(new BoundedChannelOptions(65536) { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
     /// <summary>Owns the serial connection carrying AT commands and modem responses.</summary>
-    readonly GXSerial transport;
+    readonly GXSerial _transport;
     /// <summary>Serializes access to lifecycle transitions and pending cleanup state.</summary>
-    readonly object lifecycle = new();
+    readonly System.Threading.Lock _lifecycle = new();
     /// <summary>Identifies callbacks executing within the current asynchronous open operation.</summary>
-    readonly AsyncLocal<bool> inOpening = new();
+    readonly AsyncLocal<bool> _inOpening = new();
     /// <summary>Signals completion of the currently pending open operation.</summary>
-    TaskCompletionSource? openingDone;
+    TaskCompletionSource? _openingDone;
     /// <summary>Indicates whether incoming bytes belong to an active modem exchange.</summary>
-    volatile bool awaitingResponse;
+    volatile bool _awaitingResponse;
     /// <summary>Cancels command reads when the modem closes or its response buffer overflows.</summary>
-    CancellationTokenSource commandLifetime = new();
+    CancellationTokenSource _commandLifetime = new();
     /// <summary>Creates terminal media that owns an operating system serial port transport.</summary>
     public GXTerminal() : this(new GXSerial())
     {
@@ -95,18 +95,18 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <param name="serial">The serial transport owned by this terminal.</param>
     GXTerminal(GXSerial serial)
     {
-        transport = serial;
-        transport.OnReceived += (_, e) =>
+        _transport = serial;
+        _transport.OnReceived += (_, e) =>
         {
             if (e.Data is byte[] data)
             {
-                if (awaitingResponse)
+                if (_awaitingResponse)
                 {
                     foreach (byte b in data)
                     {
-                        if (!responses.Writer.TryWrite(b))
+                        if (!_responses.Writer.TryWrite(b))
                         {
-                            commandLifetime.Cancel();
+                            _commandLifetime.Cancel();
                             ReportError(new IOException(global::Gurux.Terminal.Properties.Resources.Get("ModemCommandResponseExceeds64KiB")));
                             break;
                         }
@@ -116,13 +116,13 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
                 PublishReceived(data, e.SenderInfo);
             }
         };
-        transport.OnError += (_, e) => ReportError(e.Exception);
-        transport.OnMediaStateChange += (_, e) =>
+        _transport.OnError += (_, e) => ReportError(e.Exception);
+        _transport.OnMediaStateChange += (_, e) =>
         {
             if (e.State == MediaState.Closed)
             {
                 ReceiveBuffer.Close();
-                commandLifetime.Cancel();
+                _commandLifetime.Cancel();
             }
 
             SetState(e.State);
@@ -130,27 +130,27 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     }
 
     /// <summary>Gets the framing and device settings used by the underlying serial connection.</summary>
-    public SerialPortSettings PortSettings => transport.PortSettings;
+    public SerialPortSettings PortSettings => _transport.PortSettings;
     /// <summary>Gets or sets the operating system port name or platform accessory identifier.</summary>
-    public string? PortName { get => transport.PortName; set => transport.PortName = value; }
+    public string? PortName { get => _transport.PortName; set => _transport.PortName = value; }
     /// <summary>Gets or sets the requested transfer rate in bits per second.</summary>
-    public int BaudRate { get => transport.BaudRate; set => transport.BaudRate = value; }
+    public int BaudRate { get => _transport.BaudRate; set => _transport.BaudRate = value; }
     /// <summary>Gets or sets the number of payload bits in each serial frame.</summary>
-    public int DataBits { get => transport.DataBits; set => transport.DataBits = value; }
+    public int DataBits { get => _transport.DataBits; set => _transport.DataBits = value; }
     /// <summary>Gets or sets the parity check used for each serial frame.</summary>
-    public Parity Parity { get => transport.Parity; set => transport.Parity = value; }
+    public Parity Parity { get => _transport.Parity; set => _transport.Parity = value; }
     /// <summary>Gets or sets the stop interval terminating each serial frame.</summary>
-    public StopBits StopBits { get => transport.StopBits; set => transport.StopBits = value; }
+    public StopBits StopBits { get => _transport.StopBits; set => _transport.StopBits = value; }
     /// <summary>Gets or sets the hardware or software flow control policy.</summary>
-    public Handshake Handshake { get => transport.Handshake; set => transport.Handshake = value; }
+    public Handshake Handshake { get => _transport.Handshake; set => _transport.Handshake = value; }
     /// <summary>Gets or sets whether the data terminal ready signal is asserted.</summary>
-    public bool DtrEnable { get => transport.DtrEnable; set => transport.DtrEnable = value; }
+    public bool DtrEnable { get => _transport.DtrEnable; set => _transport.DtrEnable = value; }
     /// <summary>Gets or sets whether the request to send signal is asserted.</summary>
-    public bool RtsEnable { get => transport.RtsEnable; set => transport.RtsEnable = value; }
+    public bool RtsEnable { get => _transport.RtsEnable; set => _transport.RtsEnable = value; }
     /// <inheritdoc/>
-    public override string Name => transport.Name;
+    public override string Name => _transport.Name;
     /// <inheritdoc/>
-    public override bool IsOpen => transport.IsOpen;
+    public override bool IsOpen => _transport.IsOpen;
 
     /// <summary>Enumerates desktop serial ports on supported operating systems.</summary>
     /// <returns>The available port names, or an empty array on unsupported platforms.</returns>
@@ -158,7 +158,7 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <inheritdoc/>
     public override async ValueTask SendAsync(ReadOnlyMemory<byte> data, string? receiver = null, CancellationToken cancellationToken = default)
     {
-        await transport.SendAsync(data, receiver, cancellationToken).ConfigureAwait(false);
+        await _transport.SendAsync(data, receiver, cancellationToken).ConfigureAwait(false);
         AddBytesSent(data.Length);
     }
 
@@ -166,15 +166,15 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     public override async Task CloseAsync()
     {
         Task? pending;
-        lock (lifecycle)
+        lock (_lifecycle)
         {
-            commandLifetime.Cancel();
-            pending = openingDone?.Task;
+            _commandLifetime.Cancel();
+            pending = _openingDone?.Task;
             ReceiveBuffer.Close();
         }
 
-        await transport.CloseAsync().ConfigureAwait(false);
-        if (pending != null && !inOpening.Value)
+        await _transport.CloseAsync().ConfigureAwait(false);
+        if (pending != null && !_inOpening.Value)
         {
             await pending.ConfigureAwait(false);
         }
@@ -208,7 +208,7 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
                 new XElement("InitializeCommands", InitializeCommands.Select(command => new XElement("Command", command))),
                 new XElement("ConnectionWaitTime", (long)ConnectTimeout.TotalMilliseconds),
                 new XElement("ConnectTimeout", XmlConvert.ToString(ConnectTimeout)));
-            return transport.Settings + string.Concat(xml.Elements().Select(element => element.ToString(SaveOptions.DisableFormatting)));
+            return _transport.Settings + string.Concat(xml.Elements().Select(element => element.ToString(SaveOptions.DisableFormatting)));
         }
         set
         {
@@ -216,14 +216,14 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
             var xml = root.Element("Terminal") ?? root.Element("SMS") ?? root;
             string number = (string?)xml.Element("Number") ?? (string?)xml.Element("PhoneNumber") ?? string.Empty;
             string[] initialization = xml.Element("InitializeCommands") is XElement commands
-                ? commands.Elements("Command").Select(command => command.Value).ToArray()
+                ? [.. commands.Elements("Command").Select(command => command.Value)]
                 : xml.Element("Init") is XElement legacy ? legacy.Value.Split(';') : ["AT", "ATE0"];
             TimeSpan timeout = xml.Element("ConnectTimeout") is XElement duration
                 ? XmlConvert.ToTimeSpan(duration.Value)
                 : TimeSpan.FromMilliseconds((long?)xml.Element("ConnectionWaitTime") ?? (long?)xml.Element("CommandWaitTime") ?? 30000);
             ApplySettings(() =>
             {
-                transport.Settings = string.Concat(xml.Elements().Select(element => element.ToString(SaveOptions.DisableFormatting)));
+                _transport.Settings = string.Concat(xml.Elements().Select(element => element.ToString(SaveOptions.DisableFormatting)));
                 PhoneNumber = number;
                 InitializeCommands = initialization;
                 ConnectTimeout = timeout;
@@ -238,13 +238,13 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <exception cref="ArgumentException">The terminal or nested serial JSON value is null.</exception>
     public override string? JsonSettings
     {
-        get => JsonSerializer.Serialize(new TerminalSettings { Serial = transport.JsonSettings!, PhoneNumber = PhoneNumber, InitializeCommands = InitializeCommands, ConnectTimeout = ConnectTimeout }, TerminalJsonContext.Default.TerminalSettings);
+        get => JsonSerializer.Serialize(new TerminalSettings { Serial = _transport.JsonSettings!, PhoneNumber = PhoneNumber, InitializeCommands = InitializeCommands, ConnectTimeout = ConnectTimeout }, TerminalJsonContext.Default.TerminalSettings);
         set
         {
             var settings = value == null ? new TerminalSettings() : JsonSerializer.Deserialize(value, TerminalJsonContext.Default.TerminalSettings) ?? throw new ArgumentException(global::Gurux.Terminal.Properties.Resources.Get("InvalidTerminalSettings"));
             ApplySettings(() =>
             {
-                transport.JsonSettings = settings.Serial;
+                _transport.JsonSettings = settings.Serial;
                 PhoneNumber = settings.PhoneNumber;
                 InitializeCommands = settings.InitializeCommands;
                 ConnectTimeout = settings.ConnectTimeout;
@@ -259,9 +259,9 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     protected void ApplySettings(Action apply)
     {
         ArgumentNullException.ThrowIfNull(apply);
-        lock (lifecycle)
+        lock (_lifecycle)
         {
-            if (openingDone != null || IsOpen)
+            if (_openingDone != null || IsOpen)
             {
                 throw new InvalidOperationException(global::Gurux.Terminal.Properties.Resources.Get("CloseTheTerminalBeforeChangingSettings"));
             }
@@ -286,7 +286,7 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <returns>All localized configuration errors, or an empty list when the settings are valid.</returns>
     public override IReadOnlyList<GXValidationError> Validate()
     {
-        var errors = new List<GXValidationError>(transport.Validate());
+        var errors = new List<GXValidationError>(_transport.Validate());
         if (InitializeCommands == null || InitializeCommands.Any(command => string.IsNullOrWhiteSpace(command) || command.Contains('\r') || command.Contains('\n')))
         {
             errors.Add(new(nameof(InitializeCommands), "InvalidValue", global::Gurux.Terminal.Properties.Resources.Get("InitializationCommandsMustBeSingleNonemptyLines")));
@@ -307,7 +307,7 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <exception cref="ArgumentOutOfRangeException">The serial baud rate, data bit count or command timeout is outside its supported range.</exception>
     protected virtual void ValidateForOpen()
     {
-        transport.PortSettings.Validate();
+        _transport.PortSettings.Validate();
         if (InitializeCommands == null || InitializeCommands.Any(command => string.IsNullOrWhiteSpace(command) || command.Contains('\r') || command.Contains('\n')))
         {
             throw new ArgumentException(global::Gurux.Terminal.Properties.Resources.Get("InitializationCommandsMustBeSingleNonemptyLines"));
@@ -328,9 +328,9 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     public override async Task OpenAsync(CancellationToken cancellationToken = default)
     {
         TaskCompletionSource done;
-        lock (lifecycle)
+        lock (_lifecycle)
         {
-            if (openingDone != null)
+            if (_openingDone != null)
             {
                 throw new InvalidOperationException(global::Gurux.Terminal.Properties.Resources.Get("TerminalIsAlreadyOpening"));
             }
@@ -340,14 +340,14 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
                 return;
             }
 
-            openingDone = done = new(TaskCreationOptions.RunContinuationsAsynchronously);
-            commandLifetime.Dispose();
-            commandLifetime = new();
+            _openingDone = done = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            _commandLifetime.Dispose();
+            _commandLifetime = new();
             ReceiveBuffer.Open();
         }
 
-        bool previous = inOpening.Value;
-        inOpening.Value = true;
+        bool previous = _inOpening.Value;
+        _inOpening.Value = true;
         try
         {
             var errors = Validate();
@@ -356,24 +356,24 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
                 ValidateForOpen();
                 throw new ArgumentException(errors[0].Message);
             }
-            using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, commandLifetime.Token);
-            await transport.OpenAsync(cancel.Token).ConfigureAwait(false);
+            using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _commandLifetime.Token);
+            await _transport.OpenAsync(cancel.Token).ConfigureAwait(false);
             await InitializeAsync(cancel.Token).ConfigureAwait(false);
         }
         catch
         {
-            await transport.CloseAsync().ConfigureAwait(false);
+            await _transport.CloseAsync().ConfigureAwait(false);
             throw;
         }
         finally
         {
-            lock (lifecycle)
+            lock (_lifecycle)
             {
-                openingDone = null;
+                _openingDone = null;
             }
 
             done.TrySetResult();
-            inOpening.Value = previous;
+            _inOpening.Value = previous;
         }
     }
 
@@ -423,14 +423,14 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <returns>The successful response collected from the modem.</returns>
     protected async Task<string> ExchangeAsync(ReadOnlyMemory<byte> bytes, bool prompt, CancellationToken cancellationToken)
     {
-        await commands.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _commands.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             return await ExchangeCoreAsync(bytes, prompt, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            commands.Release();
+            _commands.Release();
         }
     }
 
@@ -445,22 +445,22 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <exception cref="OperationCanceledException">Cancellation, a command timeout or transport shutdown interrupts the exchange.</exception>
     protected async Task<string> ExchangeCoreAsync(ReadOnlyMemory<byte> bytes, bool prompt, CancellationToken cancellationToken)
     {
-        while (responses.Reader.TryRead(out _))
+        while (_responses.Reader.TryRead(out _))
         {
         }
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, commandLifetime.Token);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _commandLifetime.Token);
         timeout.CancelAfter(ConnectTimeout);
-        awaitingResponse = true;
+        _awaitingResponse = true;
         try
         {
-            await transport.SendAsync(bytes, cancellationToken: timeout.Token).ConfigureAwait(false);
+            await _transport.SendAsync(bytes, cancellationToken: timeout.Token).ConfigureAwait(false);
             AddBytesSent(bytes.Length);
             var result = new StringBuilder();
             var line = new StringBuilder();
             while (true)
             {
-                char c = (char)await responses.Reader.ReadAsync(timeout.Token).ConfigureAwait(false);
+                char c = (char)await _responses.Reader.ReadAsync(timeout.Token).ConfigureAwait(false);
                 result.Append(c);
                 if (result.Length > 65536)
                 {
@@ -497,12 +497,12 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
         }
         catch (OperationCanceledException)
         {
-            await transport.CloseAsync().ConfigureAwait(false);
+            await _transport.CloseAsync().ConfigureAwait(false);
             throw;
         }
         finally
         {
-            awaitingResponse = false;
+            _awaitingResponse = false;
         }
     }
 
@@ -513,7 +513,7 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
     /// <returns>The successful modem response after the prompt payload is submitted.</returns>
     protected async Task<string> ExecutePromptAsync(string command, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
-        await commands.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _commands.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await ExchangeCoreAsync(Encoding.ASCII.GetBytes(ValidateCommand(command) + "\r"), true, cancellationToken).ConfigureAwait(false);
@@ -521,7 +521,7 @@ public class GXTerminal : GXMediaBase, IGXMediaIconProvider
         }
         finally
         {
-            commands.Release();
+            _commands.Release();
         }
     }
 }

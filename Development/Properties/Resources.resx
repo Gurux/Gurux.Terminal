@@ -18,9 +18,6 @@
   <data name="AnATCommandMustBeASingleLine" xml:space="preserve">
     <value>An AT command must be a single line.</value>
   </data>
-  <data name="ModemReturned" xml:space="preserve">
-    <value>Modem returned </value>
-  </data>
   <data name="ModemReturnedResponse" xml:space="preserve">
     <value>Modem returned {0}</value>
   </data>
@@ -30,38 +27,11 @@
   <data name="Cancel" xml:space="preserve">
     <value>Cancel</value>
   </data>
-  <data name="CommandWaitTimeTxt" xml:space="preserve">
-    <value>Command wait time:</value>
-  </data>
-  <data name="Connecting" xml:space="preserve">
-    <value>Connecting...</value>
-  </data>
-  <data name="ConnectionFailedBusyWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: busy (when telephone call was being established).</value>
-  </data>
-  <data name="ConnectionFailedErrorWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: error (when telephone call was being established).</value>
-  </data>
-  <data name="ConnectionFailedNoCarrierWhenTelephoneCallWasBeingEstablished" xml:space="preserve">
-    <value>Connection failed: no carrier (when telephone call was being established). </value>
-  </data>
-  <data name="ConnectionWaitTimeTxt" xml:space="preserve">
-    <value>Connection wait time:</value>
-  </data>
   <data name="DataBits" xml:space="preserve">
     <value>Data Bits:</value>
   </data>
   <data name="Eop" xml:space="preserve">
     <value>Eop:</value>
-  </data>
-  <data name="FailedToReceiveAnswerFromTheModemCheckSerialPort" xml:space="preserve">
-    <value>Failed to receive answer from the modem. Check serial port.</value>
-  </data>
-  <data name="HangsUpDelayTxt" xml:space="preserve">
-    <value>Hangs up delay:</value>
-  </data>
-  <data name="InvalidReply" xml:space="preserve">
-    <value>Invalid reply.</value>
   </data>
   <data name="None" xml:space="preserve">
     <value>None</value>
@@ -71,9 +41,6 @@
   </data>
   <data name="Parity" xml:space="preserve">
     <value>Parity:</value>
-  </data>
-  <data name="PhoneNumberTxt" xml:space="preserve">
-    <value>Phone Number</value>
   </data>
   <data name="Port" xml:space="preserve">
     <value>Port:</value>

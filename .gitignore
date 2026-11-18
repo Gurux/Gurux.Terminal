@@ -178,3 +178,4 @@ artifacts/
 /UI/Gurux.Terminal.Avalonia/.vs
 /UI/Gurux.Terminal.Blazor/.vs
 /UI/Gurux.Terminal.Maui/.vs
+/Gurux.Terminal.Example/.vs

@@ -21,22 +21,19 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <GuruxSerialVersion Condition="'$(GuruxSerialVersion)' == ''">[9.0.0,9.1.0)</GuruxSerialVersion>
-    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1303</GuruxCommonVersion>
+    <GuruxSerialVersion Condition="'$(GuruxSerialVersion)' == ''">9.0.*</GuruxSerialVersion>
+    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.*</GuruxCommonVersion>
   </PropertyGroup>
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="GXTerminal.png" Pack="true" PackagePath="/" />
   </ItemGroup>
-  <ItemGroup Condition="'$(UsePublishedGuruxPackages)' == 'true'">
-    <PackageReference Include="Gurux.Serial" Version="$(GuruxSerialVersion)" />
-  </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties/Resources.resx" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Gurux.Common" Version="9.0.2611.1601" />
-    <PackageReference Include="Gurux.Serial" Version="9.0.2611.1801" />
+    <PackageReference Include="Gurux.Common" Version="$(GuruxCommonVersion)" />
+    <PackageReference Include="Gurux.Serial" Version="$(GuruxSerialVersion)" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="GXTerminal.png" LogicalName="Gurux.Terminal.MediaIcon.png" />

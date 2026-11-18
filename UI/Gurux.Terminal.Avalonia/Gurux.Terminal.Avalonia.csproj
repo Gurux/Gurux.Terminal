@@ -7,9 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.6" />
-    <ProjectReference Include="../../Development/Gurux.Terminal.csproj" />
-
-    <ProjectReference Include="../../../Gurux.Serial/UI/Gurux.Serial.Avalonia/Gurux.Serial.Avalonia.csproj" Condition="'$(UsePublishedGuruxPackages)' != 'true'" />
+    <PackageReference Include="Gurux.Terminal" Version="9.0.2611.1801" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -17,10 +15,10 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageIcon>GXTerminal.png</PackageIcon>
-    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.*</GuruxCommonVersion>
-    <GuruxSerialAvaloniaVersion Condition="'$(GuruxSerialAvaloniaVersion)' == ''">[9.0.0,9.1.0)</GuruxSerialAvaloniaVersion>
+    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1801</GuruxCommonVersion>
+    <GuruxSerialAvaloniaVersion Condition="'$(GuruxSerialAvaloniaVersion)' == ''">9.0.2611.1802</GuruxSerialAvaloniaVersion>
   </PropertyGroup>
-  <ItemGroup Condition="'$(UsePublishedGuruxPackages)' == 'true'">
+  <ItemGroup>
     <PackageReference Include="Gurux.Serial.Avalonia" Version="$(GuruxSerialAvaloniaVersion)" />
   </ItemGroup>
   <ItemGroup>
@@ -31,6 +29,6 @@
     <EmbeddedResource Remove="Tests/**;tests/**" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Gurux.Common" Version="9.0.2611.1601" />
+    <PackageReference Include="Gurux.Common" Version="$(GuruxCommonVersion)" />
   </ItemGroup>
 </Project>
