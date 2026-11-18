@@ -20,7 +20,7 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageIcon>GXTerminal.png</PackageIcon>
-    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1601</GuruxCommonVersion>
+    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.*</GuruxCommonVersion>
     <GuruxSerialBlazorVersion Condition="'$(GuruxSerialBlazorVersion)' == ''">[9.0.0,9.1.0)</GuruxSerialBlazorVersion>
   </PropertyGroup>
   <ItemGroup Condition="'$(UsePublishedGuruxPackages)' == 'true'">

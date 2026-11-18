@@ -25,9 +25,6 @@
     <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1303</GuruxCommonVersion>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../Gurux.Serial/Development/Gurux.Serial.csproj" Condition="'$(UsePublishedGuruxPackages)' != 'true'" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="GXTerminal.png" Pack="true" PackagePath="/" />
   </ItemGroup>
@@ -39,6 +36,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Gurux.Common" Version="9.0.2611.1601" />
+    <PackageReference Include="Gurux.Serial" Version="9.0.2611.1801" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="GXTerminal.png" LogicalName="Gurux.Terminal.MediaIcon.png" />

@@ -175,3 +175,6 @@ Development/.vs/Gurux.Terminal/DesignTimeBuild/.dtbcache
 # Tests and validation outputs stay local.
 **/[Tt]ests/
 artifacts/
+/UI/Gurux.Terminal.Avalonia/.vs
+/UI/Gurux.Terminal.Blazor/.vs
+/UI/Gurux.Terminal.Maui/.vs
