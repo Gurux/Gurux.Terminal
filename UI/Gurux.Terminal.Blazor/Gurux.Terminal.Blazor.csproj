@@ -18,8 +18,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageIcon>GXTerminal.png</PackageIcon>
-    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1801</GuruxCommonVersion>
-    <GuruxSerialBlazorVersion Condition="'$(GuruxSerialBlazorVersion)' == ''">9.0.2611.1802</GuruxSerialBlazorVersion>
+    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1802</GuruxCommonVersion>
+    <GuruxSerialBlazorVersion Condition="'$(GuruxSerialBlazorVersion)' == ''">9.0.2611.1803</GuruxSerialBlazorVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Gurux.Serial.Blazor" Version="$(GuruxSerialBlazorVersion)" />

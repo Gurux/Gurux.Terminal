@@ -15,8 +15,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageIcon>GXTerminal.png</PackageIcon>
-    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1801</GuruxCommonVersion>
-    <GuruxSerialAvaloniaVersion Condition="'$(GuruxSerialAvaloniaVersion)' == ''">9.0.2611.1802</GuruxSerialAvaloniaVersion>
+    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1802</GuruxCommonVersion>
+    <GuruxSerialAvaloniaVersion Condition="'$(GuruxSerialAvaloniaVersion)' == ''">9.0.2611.1803</GuruxSerialAvaloniaVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Gurux.Serial.Avalonia" Version="$(GuruxSerialAvaloniaVersion)" />

@@ -18,7 +18,7 @@
     <Compile Include="$(ExampleRoot)/UI/Maui/**/*.cs" Exclude="$(ExampleRoot)/UI/Maui/**/bin/**;$(ExampleRoot)/UI/Maui/**/obj/**;$(ExampleRoot)/UI/Maui/**/Tests/**;$(ExampleRoot)/UI/Maui/Platforms/**" />
     <EmbeddedResource Include="$(ExampleRoot)/UI/Maui/Properties/ExampleSettingsResources.resx" LogicalName="Gurux.Terminal.Example.Maui.Properties.ExampleSettingsResources.resources" />
     <PackageReference Include="Gurux.Terminal.Maui" Version="9.0.2611.1801" />
-    <PackageReference Include="Gurux.Serial" Version="9.0.2611.1801" />
+    <PackageReference Include="Gurux.Serial" Version="9.0.2611.1803" />
     <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
   </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">

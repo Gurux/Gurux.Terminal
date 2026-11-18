@@ -5,6 +5,9 @@
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net11.0-windows10.0.19041.0;net10.0-windows10.0.19041.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(BuildMobile)' == 'true' And $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net11.0-android;net10.0-android</TargetFrameworks>
     <TargetFrameworks Condition="'$(EnableIosTarget)' == 'true'">$(TargetFrameworks);net11.0-ios;net10.0-ios</TargetFrameworks>
+    <!-- Keep framework-specific MAUI versions behind one package reference for design-time restore. -->
+    <MauiVersion Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) == '10.0'">10.0.130</MauiVersion>
+    <MauiVersion Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) == '11.0'">11.0.10</MauiVersion>
     <UseMaui>true</UseMaui>
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -22,8 +25,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Keep each target on its matching MAUI major release. -->
-    <PackageReference Include="Microsoft.Maui.Controls" Version="[11.0.10,12.0.0)" Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) == '11.0'" />
-    <PackageReference Include="Microsoft.Maui.Controls" Version="[10.0.130,11.0.0)" Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) == '10.0'" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
     <None Include="README.md" Pack="true" PackagePath="/" />
     <PackageReference Include="Gurux.Terminal" Version="9.0.2611.1801" />
   </ItemGroup>
@@ -33,8 +35,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageIcon>GXTerminal.png</PackageIcon>
-    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1801</GuruxCommonVersion>
-    <GuruxSerialMauiVersion Condition="'$(GuruxSerialMauiVersion)' == ''">9.0.2611.1802</GuruxSerialMauiVersion>
+    <GuruxCommonVersion Condition="'$(GuruxCommonVersion)' == ''">9.0.2611.1802</GuruxCommonVersion>
+    <GuruxSerialMauiVersion Condition="'$(GuruxSerialMauiVersion)' == ''">9.0.2611.1803</GuruxSerialMauiVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Gurux.Serial.Maui" Version="$(GuruxSerialMauiVersion)" />
